@@ -132,4 +132,19 @@ kuznetsov::areas kuznetsov::area(circle_t c1, circle_t c2, size_t thrds, size_t 
   return result;
 }
 
+bool kuznetsov::getQuartet(std::istream& is, circle_t& c)
+{
+  double pm[4]{};
+  for (size_t i = 0; i < 4 && !is.fail(); ++i) {
+    is >> pm[i];
+  }
+  if (is.fail()) {
+    return false;
+  }
+  c.x = pm[0];
+  c.y = pm[2];
+  c.r = pm[3];
+  return true;
+}
+
 
