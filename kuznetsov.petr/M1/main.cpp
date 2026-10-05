@@ -153,4 +153,20 @@ bool kuznetsov::getQuartet(std::istream& is, circle_t& c)
   return true;
 }
 
-
+kuznetsov::rect_t kuznetsov::bounds(const std::vector< circle_t >& figs)
+{
+  const circle_t& f = figs.front();
+  rect_t r{
+    static_cast< double >(f.x) - f.r,
+    static_cast< double >(f.x) + f.r,
+    static_cast< double >(f.y) - f.r,
+    static_cast< double >(f.y) + f.r
+  };
+  for (const circle_t& c : figs) {
+    r.xmin = std::min(r.xmin, static_cast< double >(c.x) - c.r);
+    r.xmax = std::max(r.xmax, static_cast< double >(c.x) + c.r);
+    r.ymin = std::min(r.ymin, static_cast< double >(c.y) - c.r);
+    r.ymax = std::max(r.ymax, static_cast< double >(c.y) + c.r);
+  }
+  return r;
+}
