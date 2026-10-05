@@ -18,10 +18,55 @@ namespace kuznetsov {
   areas area(circle_t c1, circle_t c2, size_t thrds, size_t tests, size_t seed);
   hits_t calc(circle_t c1, circle_t c2, size_t tests, size_t seed);
   bool isInside(double x, double y, circle_t c);
+  bool getQuartet(std::istream& is, circle_t& c);
 }
 
-int main()
-{}
+int main(int argc, char** argv)
+{
+  int threads = 0, tests = 0, seed = 0;
+
+  if (argc < 3) {
+    std::cerr << "Not enough arguments\n";
+    return 1;
+  }
+  try {
+    threads = std::stoi(argv[1]);
+    tests = std::stoi(argv[2]);
+    if (argc == 4) {
+      seed = std::stoi(argv[3]);
+    }
+  } catch (const std::invalid_argument& ia) {
+    std::cerr << ia.what() << '\n';
+    return 1;
+  } catch (const std::out_of_range& oor) {
+    std::cerr << oor.what() << '\n';
+    return 2;
+  }
+
+  if (threads <= 0 || tests <= 0 || seed < 0) {
+    std::cerr << "threads, tests and seed must be positive\n";
+    return 1;
+  }
+
+  kuznetsov::circle_t c1 {}, c2{};
+  if (!kuznetsov::getQuartet(std::cin, c1)) {
+    std::cerr << "Bad parameters of first figure\n";
+    return 3;
+  }
+  if (!kuznetsov::getQuartet(std::cin, c2)) {
+    std::cerr << "Bad parameters of second figure\n";
+    return 3;
+  }
+
+  kuznetsov::areas ar {};
+  try {
+    ar = kuznetsov::area(c1, c2, threads, tests, seed);
+  } catch (const std::runtime_error& e) {
+    std::cerr << e.what() << '\n';
+    return 1;
+  }
+  std::cout << ar.firstCircle + ar.secondCircle << ' ' << ar.intersection << '\n';
+}
 
 bool kuznetsov::isInside(double x, double y, circle_t c)
 {
