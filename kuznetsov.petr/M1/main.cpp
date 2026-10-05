@@ -7,16 +7,20 @@
 
 namespace kuznetsov {
   struct circle_t {
-    double x, y, r;
+    int x, y, r;
   };
   struct hits_t {
     size_t c1, c2, intersection;
   };
   struct areas {
-    double firstCircle, secondCircle, intersection;
+    double covered, intersection;
   };
-  areas area(circle_t c1, circle_t c2, size_t thrds, size_t tests, size_t seed);
-  hits_t calc(circle_t c1, circle_t c2, size_t tests, size_t seed);
+  struct rect_t {
+    double xmin, xmax, ymin, ymax;
+  };
+  rect_t bounds(const std::vector< circle_t >& figs);
+  areas area(const std::vector< circle_t >& figs, size_t thrds, size_t tests, size_t seed);
+  hits_t calc(const std::vector< circle_t >& figs, size_t tests, size_t seed);
   bool isInside(double x, double y, circle_t c);
   bool getQuartet(std::istream& is, circle_t& c);
 }
@@ -48,24 +52,25 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  kuznetsov::circle_t c1 {}, c2{};
-  if (!kuznetsov::getQuartet(std::cin, c1)) {
-    std::cerr << "Bad parameters of first figure\n";
-    return 3;
-  }
-  if (!kuznetsov::getQuartet(std::cin, c2)) {
-    std::cerr << "Bad parameters of second figure\n";
+  std::vector<kuznetsov::circle_t> circles;
+  kuznetsov::circle_t c{};
+  try {
+    while (kuznetsov::getQuartet(std::cin, c)) {
+      circles.push_back(c);
+    }
+  } catch (const std::invalid_argument& ia) {
+    std::cerr << ia.what() << '\n';
     return 3;
   }
 
   kuznetsov::areas ar {};
   try {
-    ar = kuznetsov::area(c1, c2, threads, tests, seed);
+    ar = kuznetsov::area(circles, threads, tests, seed);
   } catch (const std::runtime_error& e) {
     std::cerr << e.what() << '\n';
     return 1;
   }
-  std::cout << ar.firstCircle + ar.secondCircle << ' ' << ar.intersection << '\n';
+  std::cout << ar.covered << ' ' << ar.intersection << '\n';
 }
 
 bool kuznetsov::isInside(double x, double y, circle_t c)
@@ -111,7 +116,7 @@ kuznetsov::areas kuznetsov::area(circle_t c1, circle_t c2, size_t thrds, size_t 
 
   for(size_t i = 0; i < thrds; ++i) {
     res.emplace_back(std::async(std::launch::async, calc, c1, c2,
-      testOnThread + (i < lastTests), seed + i));
+      testOnThread + (i < lastTests), seed + i + 1));
   }
   const double xmin = std::min(c1.x - c1.r, c2.x - c2.r);
   const double xmax = std::max(c1.x + c1.r, c2.x + c2.r);
@@ -125,8 +130,8 @@ kuznetsov::areas kuznetsov::area(circle_t c1, circle_t c2, size_t thrds, size_t 
     sumuraize.intersection += r.intersection;
   }
   areas result {0, 0,0 };
-  result.firstCircle = sumuraize.c1 * rectSquare / tests;
-  result.secondCircle = sumuraize.c2 * rectSquare / tests;
+  result.c1 = sumuraize.c1 * rectSquare / tests;
+  result.c2 = sumuraize.c2 * rectSquare / tests;
   result.intersection = sumuraize.intersection * rectSquare / tests;
 
   return result;
@@ -134,16 +139,17 @@ kuznetsov::areas kuznetsov::area(circle_t c1, circle_t c2, size_t thrds, size_t 
 
 bool kuznetsov::getQuartet(std::istream& is, circle_t& c)
 {
-  double pm[4]{};
-  for (size_t i = 0; i < 4 && !is.fail(); ++i) {
-    is >> pm[i];
-  }
-  if (is.fail()) {
+  if ((is >> std::ws).eof()) {
     return false;
   }
-  c.x = pm[0];
-  c.y = pm[2];
-  c.r = pm[3];
+
+  int pm[4]{};
+  if (!(is >> pm[0] >> pm[1] >> pm[2] >> pm[3]) || pm[0] <= 0 ) {
+    throw std::invalid_argument("invalid input of quartet");
+  }
+  c.r = pm[0];
+  c.x = pm[2];
+  c.y = pm[3];
   return true;
 }
 
