@@ -10,7 +10,7 @@ namespace kuznetsov {
     int x, y, r;
   };
   struct hits_t {
-    size_t c1, c2, intersection;
+    size_t any, all;
   };
   struct areas {
     double covered, intersection;
@@ -20,7 +20,7 @@ namespace kuznetsov {
   };
   rect_t bounds(const std::vector< circle_t >& figs);
   areas area(const std::vector< circle_t >& figs, size_t thrds, size_t tests, size_t seed);
-  hits_t calc(const std::vector< circle_t >& figs, size_t tests, size_t seed);
+  hits_t calc(std::vector< circle_t > crls, rect_t rect, size_t tests, size_t seed);
   bool isInside(double x, double y, circle_t c);
   bool getQuartet(std::istream& is, circle_t& c);
 }
@@ -78,63 +78,55 @@ bool kuznetsov::isInside(double x, double y, circle_t c)
   return (c.x - x) * (c.x - x) + (c.y - y) * (c.y - y) <= c.r * c.r;
 }
 
-kuznetsov::hits_t kuznetsov::calc(circle_t c1, circle_t c2, size_t tests, size_t seed)
+kuznetsov::hits_t kuznetsov::calc(const std::vector<circle_t> crls, rect_t rect, size_t tests, size_t seed)
 {
-  const double xmin = std::min(c1.x - c1.r, c2.x - c2.r);
-  const double xmax = std::max(c1.x + c1.r, c2.x + c2.r);
-  const double ymin = std::min(c1.y - c1.r, c2.y - c2.r);
-  const double ymax = std::max(c1.y + c1.r, c2.y + c2.r);
-
   std::default_random_engine eng(seed);
-  std::uniform_real_distribution< double > distX(xmin, xmax);
-  std::uniform_real_distribution< double > distY(ymin, ymax);
-  
-  size_t resC1 = 0;
-  size_t resC2 = 0;
-  size_t intersection = 0;
+  std::uniform_real_distribution< double > distX(rect.xmin, rect.xmax);
+  std::uniform_real_distribution< double > distY(rect.ymin, rect.ymax);
 
+  hits_t res {};
   for (size_t i = 0; i < tests; ++i) {
     double x = distX(eng);
     double y = distY(eng);
-    bool in1 = isInside(x, y, c1), in2 = isInside(x, y, c2);
-    resC1 += in1;
-    resC2 += in2;
-    intersection += in1 && in2;
+    size_t cnt = std::count_if(crls.cbegin(), crls.cend(),
+      [x, y](const circle_t& c)
+      {
+        return isInside(x, y, c);
+      });
+    res.any += cnt > 0;
+    res.all += cnt == crls.size();
   }
 
-  return {resC1, resC2, intersection};
+  return res;
 }
 
-kuznetsov::areas kuznetsov::area(circle_t c1, circle_t c2, size_t thrds, size_t tests, size_t seed)
+kuznetsov::areas kuznetsov::area(const std::vector< circle_t >& figs, size_t thrds, size_t tests, size_t seed)
 {
+  if (figs.empty()) {
+    return {0.0, 0.0};
+  }
+
+  rect_t rect = bounds(figs);
   size_t testOnThread = tests / thrds;
   size_t lastTests = tests % thrds;
-  hits_t sumuraize {0, 0, 0};
 
   std::vector< std::future< hits_t > > res;
   res.reserve(thrds);
 
   for(size_t i = 0; i < thrds; ++i) {
-    res.emplace_back(std::async(std::launch::async, calc, c1, c2,
+    res.emplace_back(std::async(std::launch::async, calc, std::cref(figs), rect,
       testOnThread + (i < lastTests), seed + i + 1));
   }
-  const double xmin = std::min(c1.x - c1.r, c2.x - c2.r);
-  const double xmax = std::max(c1.x + c1.r, c2.x + c2.r);
-  const double ymin = std::min(c1.y - c1.r, c2.y - c2.r);
-  const double ymax = std::max(c1.y + c1.r, c2.y + c2.r);
-  double rectSquare = (ymax - ymin) * (xmax - xmin);
+
+  hits_t sum{0, 0};
   for(size_t i = 0; i < thrds; ++i) {
     hits_t r = res[i].get();
-    sumuraize.c1 += r.c1;
-    sumuraize.c2 += r.c2;
-    sumuraize.intersection += r.intersection;
+    sum.any += r.any;
+    sum.all += r.all;
   }
-  areas result {0, 0,0 };
-  result.c1 = sumuraize.c1 * rectSquare / tests;
-  result.c2 = sumuraize.c2 * rectSquare / tests;
-  result.intersection = sumuraize.intersection * rectSquare / tests;
 
-  return result;
+  double rectSquare = (rect.xmax - rect.xmin) * (rect.ymax - rect.ymin);
+  return {sum.any * rectSquare / tests, sum.all * rectSquare / tests};
 }
 
 bool kuznetsov::getQuartet(std::istream& is, circle_t& c)
