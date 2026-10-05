@@ -11,7 +11,7 @@
 
 namespace kuznetsov {
   struct circle_t {
-    int x, y, r;
+    int x, y, a, b;
   };
 
   struct hits_t {
@@ -26,8 +26,8 @@ namespace kuznetsov {
     double xmin, xmax, ymin, ymax;
   };
 
-  rect_t bounds(const std::vector< circle_t >& figs);
-  areas_t area(const std::vector< circle_t >& figs, size_t thrds, size_t tests, size_t seed);
+  rect_t bounds(const std::vector< circle_t >& circls);
+  areas_t area(const std::vector< circle_t >& circls, size_t thrds, size_t tests, size_t seed);
   hits_t calc(const std::vector< circle_t >& crls, rect_t rect, size_t tests, size_t seed);
   bool isInside(double x, double y, circle_t c);
   bool getQuartet(std::istream& is, circle_t& c);
@@ -100,7 +100,9 @@ int main(int argc, char** argv)
 
 bool kuznetsov::isInside(double x, double y, circle_t c)
 {
-  return (c.x - x) * (c.x - x) + (c.y - y) * (c.y - y) <= c.r * c.r;
+  const double dx = (x - c.x) / c.a;
+  const double dy = (y - c.y) / c.b;
+  return dx * dx + dy * dy <= 1.0;
 }
 
 kuznetsov::hits_t kuznetsov::calc(const std::vector< circle_t >& crls, rect_t rect, size_t tests, size_t seed)
@@ -125,13 +127,13 @@ kuznetsov::hits_t kuznetsov::calc(const std::vector< circle_t >& crls, rect_t re
   return res;
 }
 
-kuznetsov::areas_t kuznetsov::area(const std::vector< circle_t >& figs, size_t thrds, size_t tests, size_t seed)
+kuznetsov::areas_t kuznetsov::area(const std::vector< circle_t >& circls, size_t thrds, size_t tests, size_t seed)
 {
-  if (figs.empty()) {
+  if (circls.empty()) {
     return {0.0, 0.0};
   }
 
-  rect_t rect = bounds(figs);
+  rect_t rect = bounds(circls);
   const size_t test_on_thread = tests / thrds;
   const size_t last_tests = tests % thrds;
 
@@ -140,7 +142,7 @@ kuznetsov::areas_t kuznetsov::area(const std::vector< circle_t >& figs, size_t t
 
   for (size_t i = 0; i < thrds; ++i) {
     res.emplace_back(
-        std::async(std::launch::async, calc, std::cref(figs), rect, test_on_thread + (i < last_tests), seed + i));
+        std::async(std::launch::async, calc, std::cref(circls), rect, test_on_thread + (i < last_tests), seed + i));
   }
 
   hits_t sum{0, 0};
@@ -161,25 +163,26 @@ bool kuznetsov::getQuartet(std::istream& is, circle_t& c)
   }
 
   int a{}, b{}, x{}, y{};
-  if (!(is >> a >> b >> x >> y) || a <= 0) {
+  if (!(is >> a >> b >> x >> y) || a <= 0 || b < 0) {
     throw std::invalid_argument("invalid input of quartet");
   }
-  c.r = a;
+  c.a = a;
+  c.b = b == 0 ? a : b;
   c.x = x;
   c.y = y;
   return true;
 }
 
-kuznetsov::rect_t kuznetsov::bounds(const std::vector< circle_t >& figs)
+kuznetsov::rect_t kuznetsov::bounds(const std::vector< circle_t >& circls)
 {
-  const circle_t& f = figs.front();
-  rect_t r{static_cast< double >(f.x) - f.r, static_cast< double >(f.x) + f.r, static_cast< double >(f.y) - f.r,
-      static_cast< double >(f.y) + f.r};
-  for (const circle_t& c : figs) {
-    r.xmin = std::min(r.xmin, static_cast< double >(c.x) - c.r);
-    r.xmax = std::max(r.xmax, static_cast< double >(c.x) + c.r);
-    r.ymin = std::min(r.ymin, static_cast< double >(c.y) - c.r);
-    r.ymax = std::max(r.ymax, static_cast< double >(c.y) + c.r);
+  const circle_t& f = circls.front();
+  rect_t r{static_cast< double >(f.x) - f.a, static_cast< double >(f.x) + f.a, static_cast< double >(f.y) - f.b,
+      static_cast< double >(f.y) + f.b};
+  for (auto it = circls.cbegin(); it != circls.cend(); ++it) {
+    r.xmin = std::min(r.xmin, static_cast< double >(it->x) - it->a);
+    r.xmax = std::max(r.xmax, static_cast< double >(it->x) + it->a);
+    r.ymin = std::min(r.ymin, static_cast< double >(it->y) - it->b);
+    r.ymax = std::max(r.ymax, static_cast< double >(it->y) + it->b);
   }
   return r;
 }
