@@ -82,6 +82,9 @@ int main(int argc, char** argv)
   } catch (const std::invalid_argument& ia) {
     std::cerr << ia.what() << '\n';
     return incorrect_input;
+  } catch (const std::bad_alloc& ia) {
+    std::cerr << ia.what() << '\n';
+    return bad_alloc;
   }
 
   kuznetsov::areas_t ar{};
@@ -133,6 +136,8 @@ kuznetsov::areas_t kuznetsov::area(const std::vector< circle_t >& circls, size_t
     return {0.0, 0.0};
   }
 
+  constexpr size_t max_cores_superpc = 13'789'440;
+  thrds = std::min(thrds, max_cores_superpc);
   rect_t rect = bounds(circls);
   const size_t test_on_thread = tests / thrds;
   const size_t last_tests = tests % thrds;
