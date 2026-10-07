@@ -135,8 +135,7 @@ kuznetsov::areas_t kuznetsov::area(const std::vector< circle_t >& circls, size_t
   if (circls.empty()) {
     return {0.0, 0.0};
   }
-
-  constexpr size_t max_cores_superpc = 10'000;
+  constexpr size_t max_cores_superpc = 1000;
   thrds = std::min(thrds, max_cores_superpc);
   rect_t rect = bounds(circls);
   const size_t test_on_thread = tests / thrds;
