@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     if (argc == seed_index + 1) {
       seed = std::stoi(argv[seed_index]);
     }
-    threads = threads > 0 ? threads : 1;
+    threads = threads != 0 ? threads : 1;
   } catch (const std::invalid_argument& ia) {
     std::cerr << ia.what() << '\n';
     return incorrect_input;
