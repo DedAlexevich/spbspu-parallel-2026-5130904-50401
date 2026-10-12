@@ -1,6 +1,6 @@
-#include "iostream"
+#include <iostream>
 
 int main()
 {
-  return 1;
+  std::cout << "burukov.arkadiy\n";
 }
