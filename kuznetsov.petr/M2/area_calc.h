@@ -7,7 +7,7 @@
 namespace kuznetsov {
   struct circle_t {
     std::string name;
-    double r, x, y;
+    int r, x, y;
   };
 
   struct set_t {
@@ -16,13 +16,13 @@ namespace kuznetsov {
   };
 
   struct rect_t {
-    double xmin, xmax, ymin, ymax;
+    int xmin, xmax, ymin, ymax;
   };
 
   rect_t bounds(const set_t& set);
   double area(const set_t& set, size_t thrds, size_t tests, size_t seed);
   size_t calc(const set_t& set, rect_t rect, size_t tests, size_t seed);
-  bool isInside(double x, double y, circle_t c);
+  bool isInside(double x, double y, const circle_t& c);
 }
 
 #endif

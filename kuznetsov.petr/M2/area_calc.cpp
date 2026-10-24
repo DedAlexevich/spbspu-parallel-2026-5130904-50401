@@ -3,11 +3,12 @@
 #include <algorithm>
 #include <future>
 #include <random>
+#include <stdexcept>
 
-bool kuznetsov::isInside(double x, double y, circle_t c)
+bool kuznetsov::isInside(double x, double y, const circle_t& c)
 {
-  const double dx = (x - c.x);
-  const double dy = (y - c.y);
+  const double dx = x - c.x;
+  const double dy = y - c.y;
   return dx * dx + dy * dy <= c.r * c.r;
 }
 
@@ -21,17 +22,20 @@ size_t kuznetsov::calc(const set_t& set, rect_t rect, size_t tests, size_t seed)
   for (size_t i = 0; i < tests; ++i) {
     const double x = dist_x(eng);
     const double y = dist_y(eng);
-    const size_t cnt = std::count_if(set.circles.cbegin(), set.circles.cend(),
+    const bool inside = std::any_of(set.circles.cbegin(), set.circles.cend(),
       [x, y](const circle_t& c) {
         return isInside(x, y, c);
       });
-    res += cnt > 0;
+    res += inside;
   }
   return res;
 }
 
 double kuznetsov::area(const set_t& set, size_t thrds, size_t tests, size_t seed)
 {
+  if (thrds == 0 || tests == 0) {
+    throw std::invalid_argument("threads and tests must be positive");
+  }
   if (set.circles.empty()) {
     return 0.0;
   }
