@@ -1,7 +1,9 @@
 #include "interprocess_connect.h"
 
 #include <utility>
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 kuznetsov::detail::FdGuard::FdGuard(int fd):
@@ -78,4 +80,49 @@ bool kuznetsov::exchange(int wr, int rd, const request_t& req, response_t& res)
     return false;
   }
   return recvAll(err, rd, reinterpret_cast< char* >(&res), sizeof(res)) == sizeof(res);
+}
+
+void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
+{
+  const size_t bytes = detail::shmBytes(set.circles.size());
+  int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+
+  if (fd < 0) {
+    throw detail::sysError("shm_open");
+  }
+
+  try {
+    detail::FdGuard fg(fd);
+    if (ftruncate(fd, static_cast< off_t >(bytes)) < 0) {
+      throw detail::sysError("ftruncate");
+    }
+
+    void* ptr = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (ptr == MAP_FAILED) {
+      throw detail::sysError("mmap");
+    }
+
+    Mapping map(ptr, bytes);
+    std::copy(set.circles.cbegin(), set.circles.cend(), static_cast< circle_t* >(ptr));
+  } catch (...) {
+    shm_unlink(name.c_str());
+    throw;
+  }
+}
+
+kuznetsov::Mapping kuznetsov::openSetShm(const char* name, size_t count)
+{
+  const size_t bytes = detail::shmBytes(count);
+  int fd = shm_open(name, O_RDONLY, 0);
+
+  if (fd < 0) {
+    throw detail::sysError("shm_open");
+  }
+  detail::FdGuard fg(fd);
+
+  void* ptr = mmap(nullptr, bytes, PROT_READ, MAP_SHARED, fd, 0);
+  if (ptr == MAP_FAILED) {
+    throw detail::sysError("mmap");
+  }
+  return Mapping(ptr, bytes);
 }
