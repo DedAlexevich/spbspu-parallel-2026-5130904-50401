@@ -205,3 +205,21 @@ kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const State& s
     return proc_t{pid, cmd[1], res[0], true};
   }
 }
+
+void kuznetsov::detail::shutdown(State& st)
+{
+  for (auto it = st.procs.begin(); it != st.procs.end(); ++it) {
+    if (it->second.alive) {
+      close(it->second.cmd_wr);
+      close(it->second.res_rd);
+    }
+  }
+  for (auto it = st.procs.begin(); it != st.procs.end(); ++it) {
+    if (it->second.alive) {
+      waitpid(it->second.pid, nullptr, 0);
+      it->second.alive = false;
+    }
+  }
+}
+
+
