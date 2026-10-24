@@ -7,8 +7,6 @@
 #include <map>
 #include <string>
 
-#include <sys/types.h>
-
 #include "interprocess_connect.h"
 
 namespace kuznetsov {
@@ -27,7 +25,7 @@ namespace kuznetsov {
     double area;
   };
 
-  struct State {
+  struct state_t {
     std::map< std::string, circle_t > circles;
     std::map< std::string, set_t > sets;
     std::map< std::string, proc_t > procs;
@@ -35,26 +33,27 @@ namespace kuznetsov {
     size_t next_id;
   };
 
-  using cmd_t = void(*)(std::istream&, std::ostream&, State&);
+  using cmd_t = void (*)(std::istream&, std::ostream&, state_t&);
 
   void cliProcess(std::istream& in, std::ostream& out);
 
-  void doCircle(std::istream& in, std::ostream& out, State& st);
-  void doSet(std::istream& in, std::ostream& out, State& st);
-  void doShow(std::istream& in, std::ostream& out, State& st);
-  void doShowSet(std::istream& in, std::ostream& out, State& st);
-  void doFrame(std::istream& in, std::ostream& out, State& st);
-  void doFrameSet(std::istream& in, std::ostream& out, State& st);
-  void doSpawn(std::istream& in, std::ostream& out, State& st);
-  void doAreaOn(std::istream& in, std::ostream& out, State& st);
-  void doStatus(std::istream& in, std::ostream& out, State& st);
-  void doWait(std::istream& in, std::ostream& out, State& st);
+  void doCircle(std::istream& in, std::ostream& out, state_t& st);
+  void doSet(std::istream& in, std::ostream& out, state_t& st);
+  void doShow(std::istream& in, std::ostream& out, state_t& st);
+  void doShowSet(std::istream& in, std::ostream& out, state_t& st);
+  void doFrame(std::istream& in, std::ostream& out, state_t& st);
+  void doFrameSet(std::istream& in, std::ostream& out, state_t& st);
+  void doSpawn(std::istream& in, std::ostream& out, state_t& st);
+  void doAreaOn(std::istream& in, std::ostream& out, state_t& st);
+  void doStatus(std::istream& in, std::ostream& out, state_t& st);
+  void doWait(std::istream& in, std::ostream& out, state_t& st);
 
   namespace detail {
     class IOGuard {
     public:
       explicit IOGuard(std::basic_ios< char >& s);
       ~IOGuard();
+
     private:
       std::basic_ios< char >& s_;
       std::streamsize width_;
@@ -86,11 +85,11 @@ namespace kuznetsov {
     void printRect(std::ostream& out, const rect_t& r);
     void printStatus(std::ostream& out, const std::string& name, const calc_t& calc);
 
-    void markDead(State& st, const std::string& name);
-    void queryCalc(State& st, calc_t& calc, request_kind_t kind);
-    void closeOtherChildren(const State& st);
-    proc_t startProc(std::ostream& out, const State& st, size_t seed);
-    void shutdown(State& st);
+    void markDead(state_t& st, const std::string& name);
+    void queryCalc(state_t& st, calc_t& calc, request_kind_t kind);
+    void closeOtherChildren(const state_t& st);
+    proc_t startProc(std::ostream& out, const state_t& st, size_t seed);
+    void shutdown(state_t& st);
 
     template< class T >
     std::istream& operator>>(std::istream& in, LineArg< T >&& arg)

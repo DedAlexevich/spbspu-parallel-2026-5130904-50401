@@ -18,6 +18,7 @@ namespace kuznetsov {
     public:
       Clicker();
       double millisec() const;
+
     private:
       std::chrono::time_point< std::chrono::high_resolution_clock > start_;
     };
@@ -26,12 +27,10 @@ namespace kuznetsov {
     using finished_t = std::map< size_t, response_t >;
 
     result_t runArea(const Mapping& map, size_t count, size_t threads, size_t tries, size_t seed);
-    response_t startCalc(const request_t& req,
-      size_t seed, pending_t& pending, finished_t& finished);
+    response_t startCalc(const request_t& req, size_t seed, pending_t& pending, finished_t& finished);
     response_t finishCalc(size_t id, pending_t& pending, finished_t& finished);
     response_t checkCalc(size_t id, bool block, pending_t& pending, finished_t& finished);
-    response_t handleRequest(
-      const request_t& req, size_t seed, pending_t& pending, finished_t& finished);
+    response_t handleRequest(const request_t& req, size_t seed, pending_t& pending, finished_t& finished);
   }
 
 }

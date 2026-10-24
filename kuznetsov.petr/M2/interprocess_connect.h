@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <system_error>
+
 #include "area_calc.h"
 
 namespace kuznetsov {

@@ -1,9 +1,11 @@
 #include "area_calc.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <future>
 #include <random>
 #include <stdexcept>
+#include <vector>
 
 bool kuznetsov::isInside(double x, double y, const circle_t& c)
 {
@@ -50,8 +52,7 @@ double kuznetsov::area(const circle_t* b, const circle_t* e, size_t thrds, size_
   res.reserve(thrds);
 
   for (size_t i = 0; i < thrds; ++i) {
-    res.emplace_back(std::async(std::launch::async,
-      calc, b, e, rect, test_on_thread + (i < last_tests), seed + i));
+    res.emplace_back(std::async(std::launch::async, calc, b, e, rect, test_on_thread + (i < last_tests), seed + i));
   }
 
   double sum{};

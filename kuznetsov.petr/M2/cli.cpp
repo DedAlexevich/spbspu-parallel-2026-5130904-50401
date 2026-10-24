@@ -1,16 +1,24 @@
 #include "cli.h"
 
-#include <algorithm>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <stdexcept>
+
+#include <stdio.h>
+#incldue < string>
+#include <cstdlib>
 #include <limits>
 #include <unordered_map>
+#include <utility>
 
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "area_calc.h"
 #include "compute.h"
+#include "interprocess_connect.h"
 
 kuznetsov::detail::IOGuard::IOGuard(std::basic_ios< char >& s):
   s_(s),
@@ -59,8 +67,8 @@ bool kuznetsov::detail::isValidName(const std::string& name)
 
 std::istream& kuznetsov::detail::operator>>(std::istream& in, NameArg&& arg)
 {
-  IOGuard g(in);
-  std::istream::sentry s(in, true);
+  const IOGuard g(in);
+  const std::istream::sentry s(in, true);
   if (!s) {
     return in;
   }
@@ -88,7 +96,7 @@ void kuznetsov::detail::printCircle(std::ostream& out, const circle_t& c)
 
 void kuznetsov::detail::printRect(std::ostream& out, const rect_t& r)
 {
-  IOGuard g(out);
+  const IOGuard g(out);
   out << std::fixed << std::setprecision(0);
   out << '(' << r.xmin << ' ' << r.ymin << ") (" << r.xmax << ' ' << r.ymax << ")\n";
 }
@@ -100,7 +108,7 @@ void kuznetsov::detail::printStatus(std::ostream& out, const std::string& name, 
     out << calc.proc << " <IN PROGRESS>\n";
     break;
   case calc_state_t::done: {
-    IOGuard g(out);
+    const IOGuard g(out);
     out << std::fixed << std::setprecision(3);
     out << calc.proc << ' ' << calc.ms << ' ' << calc.area << '\n';
     break;
@@ -111,7 +119,7 @@ void kuznetsov::detail::printStatus(std::ostream& out, const std::string& name, 
   }
 }
 
-void kuznetsov::detail::markDead(State& st, const std::string& name)
+void kuznetsov::detail::markDead(state_t& st, const std::string& name)
 {
   proc_t& proc = st.procs.at(name);
   if (!proc.alive) {
@@ -133,9 +141,9 @@ void kuznetsov::detail::markDead(State& st, const std::string& name)
   }
 }
 
-void kuznetsov::detail::queryCalc(State& st, calc_t& calc, request_kind_t kind)
+void kuznetsov::detail::queryCalc(state_t& st, calc_t& calc, request_kind_t kind)
 {
-  proc_t& proc = st.procs.at(calc.proc);
+  const proc_t& proc = st.procs.at(calc.proc);
   if (calc.state != calc_state_t::progress || !proc.alive) {
     return;
   }
@@ -152,7 +160,7 @@ void kuznetsov::detail::queryCalc(State& st, calc_t& calc, request_kind_t kind)
   calc.area = res.area;
 }
 
-void kuznetsov::detail::closeOtherChildren(const State& st)
+void kuznetsov::detail::closeOtherChildren(const state_t& st)
 {
   for (auto it = st.procs.begin(); it != st.procs.end(); ++it) {
     if (it->second.alive) {
@@ -162,7 +170,7 @@ void kuznetsov::detail::closeOtherChildren(const State& st)
   }
 }
 
-kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const State& st, size_t seed)
+kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const state_t& st, size_t seed)
 {
   out.flush();
   int cmd[2]{};
@@ -172,14 +180,14 @@ kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const State& s
     throw sysError("pipe");
   }
   if (pipe(res) < 0) {
-    std::system_error e = sysError("pipe");
+    const std::system_error e = sysError("pipe");
     close(cmd[0]);
     close(cmd[1]);
     throw e;
   }
-  pid_t pid = fork();
+  const pid_t pid = fork();
   if (pid < 0) {
-    std::system_error e = sysError("fork");
+    const std::system_error e = sysError("fork");
     close(cmd[0]);
     close(cmd[1]);
     close(res[0]);
@@ -208,7 +216,7 @@ kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const State& s
   }
 }
 
-void kuznetsov::detail::shutdown(State& st)
+void kuznetsov::detail::shutdown(state_t& st)
 {
   for (auto it = st.procs.begin(); it != st.procs.end(); ++it) {
     if (it->second.alive) {
@@ -226,7 +234,7 @@ void kuznetsov::detail::shutdown(State& st)
 
 void kuznetsov::cliProcess(std::istream& in, std::ostream& out)
 {
-  State st{};
+  state_t st{};
   try {
     std::unordered_map< std::string, cmd_t > cmds;
     cmds["circle"] = doCircle;
@@ -266,7 +274,7 @@ void kuznetsov::cliProcess(std::istream& in, std::ostream& out)
   detail::shutdown(st);
 }
 
-void kuznetsov::doCircle(std::istream& in, std::ostream&, State& st)
+void kuznetsov::doCircle(std::istream& in, std::ostream&, state_t& st)
 {
   using detail::arg;
   std::string name;
@@ -279,7 +287,7 @@ void kuznetsov::doCircle(std::istream& in, std::ostream&, State& st)
   st.circles.emplace(name, circle_t{r, x, y});
 }
 
-void kuznetsov::doSet(std::istream& in, std::ostream&, State& st)
+void kuznetsov::doSet(std::istream& in, std::ostream&, state_t& st)
 {
   using detail::arg;
   std::string name;
@@ -303,7 +311,7 @@ void kuznetsov::doSet(std::istream& in, std::ostream&, State& st)
   st.sets.emplace(name, std::move(set));
 }
 
-void kuznetsov::doShow(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doShow(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   in >> detail::arg(name);
@@ -311,7 +319,7 @@ void kuznetsov::doShow(std::istream& in, std::ostream& out, State& st)
   detail::printCircle(out, st.circles.at(name));
 }
 
-void kuznetsov::doShowSet(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doShowSet(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   in >> detail::arg(name);
@@ -322,7 +330,7 @@ void kuznetsov::doShowSet(std::istream& in, std::ostream& out, State& st)
   }
 }
 
-void kuznetsov::doFrame(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doFrame(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   in >> detail::arg(name);
@@ -331,7 +339,7 @@ void kuznetsov::doFrame(std::istream& in, std::ostream& out, State& st)
   detail::printRect(out, bounds(&c, &c + 1));
 }
 
-void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   in >> detail::arg(name);
@@ -341,7 +349,7 @@ void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, State& st)
   detail::printRect(out, bounds(first, first + set.circles.size()));
 }
 
-void kuznetsov::doSpawn(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doSpawn(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   long seed = 0;
@@ -359,7 +367,7 @@ void kuznetsov::doSpawn(std::istream& in, std::ostream& out, State& st)
   }
 }
 
-void kuznetsov::doAreaOn(std::istream& in, std::ostream&, State& st)
+void kuznetsov::doAreaOn(std::istream& in, std::ostream&, state_t& st)
 {
   using detail::arg;
   std::string proc_name, calc_name, set_name;
@@ -371,7 +379,7 @@ void kuznetsov::doAreaOn(std::istream& in, std::ostream&, State& st)
     throw std::invalid_argument("calculation exists");
   }
   const set_t& set = st.sets.at(set_name);
-  proc_t& proc = st.procs.at(proc_name);
+  const proc_t& proc = st.procs.at(proc_name);
   if (!proc.alive) {
     throw std::invalid_argument("process is terminated");
   }
@@ -408,7 +416,7 @@ void kuznetsov::doAreaOn(std::istream& in, std::ostream&, State& st)
   }
 }
 
-void kuznetsov::doStatus(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doStatus(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   in >> detail::arg(name);
@@ -418,7 +426,7 @@ void kuznetsov::doStatus(std::istream& in, std::ostream& out, State& st)
   detail::printStatus(out, name, calc);
 }
 
-void kuznetsov::doWait(std::istream& in, std::ostream& out, State& st)
+void kuznetsov::doWait(std::istream& in, std::ostream& out, state_t& st)
 {
   std::string name;
   in >> detail::arg(name);
@@ -427,5 +435,3 @@ void kuznetsov::doWait(std::istream& in, std::ostream& out, State& st)
   detail::queryCalc(st, calc, request_kind_t::wait);
   detail::printStatus(out, name, calc);
 }
-
-

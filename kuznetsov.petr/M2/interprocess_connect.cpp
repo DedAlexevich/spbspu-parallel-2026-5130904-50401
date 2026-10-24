@@ -1,6 +1,8 @@
 #include "interprocess_connect.h"
 
+#include <algorithm>
 #include <utility>
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

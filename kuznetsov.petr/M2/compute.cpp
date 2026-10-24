@@ -9,15 +9,15 @@ kuznetsov::detail::Clicker::Clicker():
 
 double kuznetsov::detail::Clicker::millisec() const
 {
-  using std::chrono::high_resolution_clock;
   using std::chrono::duration_cast;
+  using std::chrono::high_resolution_clock;
   using std::chrono::milliseconds;
   auto t = high_resolution_clock::now();
   return duration_cast< milliseconds >(t - start_).count();
 }
 
-kuznetsov::detail::result_t kuznetsov::detail::runArea(const Mapping& map,
-  size_t count, size_t threads, size_t tries, size_t seed)
+kuznetsov::detail::result_t kuznetsov::detail::runArea(
+  const Mapping& map, size_t count, size_t threads, size_t tries, size_t seed)
 {
   const circle_t* first = map.circles();
   Clicker cl;
@@ -37,7 +37,7 @@ kuznetsov::response_t kuznetsov::detail::startCalc(
     auto ins = pending.emplace(req.calc_id, std::future< result_t >{});
     try {
       ins.first->second = std::async(std::launch::async,
-                        runArea, std::move(map), req.count, req.threads, req.tries, seed);
+        runArea, std::move(map), req.count, req.threads, req.tries, seed);
     } catch (...) {
       pending.erase(ins.first);
       throw;
@@ -83,8 +83,8 @@ kuznetsov::response_t kuznetsov::detail::checkCalc(size_t id, bool block, pendin
   return finishCalc(id, pending, finished);
 }
 
-kuznetsov::response_t kuznetsov::detail::handleRequest(const request_t& req, size_t seed,
-  pending_t& pending, finished_t& finished)
+kuznetsov::response_t kuznetsov::detail::handleRequest(
+  const request_t& req, size_t seed, pending_t& pending, finished_t& finished)
 {
   switch (req.kind) {
   case request_kind_t::calc:
@@ -110,4 +110,3 @@ void kuznetsov::computeProcess(int rd, int wr, size_t seed)
     }
   }
 }
-
