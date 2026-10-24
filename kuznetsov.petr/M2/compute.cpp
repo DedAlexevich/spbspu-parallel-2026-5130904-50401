@@ -83,4 +83,31 @@ kuznetsov::response_t kuznetsov::detail::checkCalc(size_t id, bool block, pendin
   return finishCalc(id, pending, finished);
 }
 
+kuznetsov::response_t kuznetsov::detail::handleRequest(const request_t& req, size_t seed,
+  pending_t& pending, finished_t& finished)
+{
+  switch (req.kind) {
+  case request_kind_t::calc:
+    return startCalc(req, seed, pending, finished);
+  case request_kind_t::status:
+    return checkCalc(req.calc_id, false, pending, finished);
+  case request_kind_t::wait:
+    return checkCalc(req.calc_id, true, pending, finished);
+  }
+  return response_t{req.calc_id, calc_state_t::failed, 0.0, 0.0};
+}
+
+void kuznetsov::computeProcess(int rd, int wr, size_t seed)
+{
+  detail::pending_t pending;
+  detail::finished_t finished;
+  request_t req{};
+  int err = 0;
+  while (recvAll(err, rd, reinterpret_cast< char* >(&req), sizeof(req)) == sizeof(req)) {
+    const response_t res = detail::handleRequest(req, seed, pending, finished);
+    if (sendAll(err, wr, reinterpret_cast< const char* >(&res), sizeof(res)) != sizeof(res)) {
+      break;
+    }
+  }
+}
 
