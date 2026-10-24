@@ -14,6 +14,14 @@ namespace kuznetsov {
       double area;
     };
 
+    class Clicker {
+    public:
+      Clicker();
+      double millisec() const;
+    private:
+      std::chrono::time_point< std::chrono::high_resolution_clock > start_;
+    };
+
     using pending_t = std::map< size_t, std::future< result_t > >;
     using finished_t = std::map< size_t, response_t >;
 
