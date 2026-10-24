@@ -1,5 +1,7 @@
 #include "cli.h"
 
+#include <limits>
+
 kuznetsov::detail::IOGuard::IOGuard(std::basic_ios< char >& s):
   s_(s),
   width_(s.width()),
@@ -32,3 +34,17 @@ void kuznetsov::detail::requireLineEnd(std::istream& in)
     throw std::invalid_argument("bad arguments");
   }
 }
+
+void kuznetsov::detail::skipLine(std::istream& in)
+{
+  in.clear();
+  in.ignore(std::numeric_limits< std::streamsize >::max(), '\n');
+}
+
+bool kuznetsov::detail::isValidName(const std::string& name)
+{
+  const char c = name.empty() ? '\0' : name[0];
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+
