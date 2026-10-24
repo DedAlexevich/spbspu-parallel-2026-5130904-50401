@@ -1,10 +1,14 @@
 #include "cli.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include "compute.h"
 
 kuznetsov::detail::IOGuard::IOGuard(std::basic_ios< char >& s):
   s_(s),
@@ -153,5 +157,51 @@ void kuznetsov::detail::closeOtherChildren(const State& st)
       close(it->second.cmd_wr);
       close(it->second.res_rd);
     }
+  }
+}
+
+kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const State& st, size_t seed)
+{
+  out.flush();
+  int cmd[2]{};
+  int res[2]{};
+
+  if (pipe(cmd) < 0) {
+    throw sysError("pipe");
+  }
+  if (pipe(res) < 0) {
+    std::system_error e = sysError("pipe");
+    close(cmd[0]);
+    close(cmd[1]);
+    throw e;
+  }
+  pid_t pid = fork();
+  if (pid < 0) {
+    std::system_error e = sysError("fork");
+    close(cmd[0]);
+    close(cmd[1]);
+    close(res[0]);
+    close(res[1]);
+    throw e;
+  } else if (pid == 0) {
+    close(cmd[1]);
+    close(res[0]);
+    closeOtherChildren(st);
+    int code = 0;
+    try {
+      computeProcess(cmd[0], res[1], seed);
+    } catch (const std::exception& e) {
+      std::cerr << "compute process: " << e.what() << '\n';
+      code = 1;
+    } catch (...) {
+      code = 1;
+    }
+    close(cmd[0]);
+    close(res[1]);
+    std::_Exit(code);
+  } else {
+    close(cmd[0]);
+    close(res[1]);
+    return proc_t{pid, cmd[1], res[0], true};
   }
 }
