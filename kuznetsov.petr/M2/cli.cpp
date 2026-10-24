@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <sys/wait.h>
+#include <unistd.h>
 
 kuznetsov::detail::IOGuard::IOGuard(std::basic_ios< char >& s):
   s_(s),
@@ -100,5 +102,56 @@ void kuznetsov::detail::printStatus(std::ostream& out, const std::string& name, 
   case calc_state_t::failed:
     std::cerr << "calculation " << name << " failed\n";
     break;
+  }
+}
+
+void kuznetsov::detail::markDead(State& st, const std::string& name)
+{
+  proc_t& proc = st.procs.at(name);
+  if (!proc.alive) {
+    return;
+  }
+  proc.alive = false;
+  close(proc.cmd_wr);
+  close(proc.res_rd);
+  proc.cmd_wr = -1;
+  proc.res_rd = -1;
+  waitpid(proc.pid, nullptr, 0);
+  std::cerr << "process " << name << " terminated\n";
+  for (auto it = st.calcs.begin(); it != st.calcs.end(); ++it) {
+    calc_t& calc = it->second;
+    if (calc.proc == name && calc.state == calc_state_t::progress) {
+      calc.state = calc_state_t::failed;
+      std::cerr << "calculation " << it->first << " failed\n";
+    }
+  }
+}
+
+void kuznetsov::detail::queryCalc(State& st, calc_t& calc, request_kind_t kind)
+{
+  proc_t& proc = st.procs.at(calc.proc);
+  if (calc.state != calc_state_t::progress || !proc.alive) {
+    return;
+  }
+  request_t req{};
+  req.kind = kind;
+  req.calc_id = calc.id;
+  response_t res{};
+  if (!exchange(proc.cmd_wr, proc.res_rd, req, res) || res.calc_id != calc.id) {
+    markDead(st, calc.proc);
+    return;
+  }
+  calc.state = res.state;
+  calc.ms = res.ms;
+  calc.area = res.area;
+}
+
+void kuznetsov::detail::closeOtherChildren(const State& st)
+{
+  for (auto it = st.procs.begin(); it != st.procs.end(); ++it) {
+    if (it->second.alive) {
+      close(it->second.cmd_wr);
+      close(it->second.res_rd);
+    }
   }
 }
