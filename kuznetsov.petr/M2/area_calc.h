@@ -6,12 +6,10 @@
 
 namespace kuznetsov {
   struct circle_t {
-    std::string name;
     int r, x, y;
   };
 
   struct set_t {
-    std::string name;
     std::vector< circle_t > circles;
   };
 
@@ -19,9 +17,9 @@ namespace kuznetsov {
     int xmin, xmax, ymin, ymax;
   };
 
-  rect_t bounds(const set_t& set);
-  double area(const set_t& set, size_t thrds, size_t tests, size_t seed);
-  size_t calc(const set_t& set, rect_t rect, size_t tests, size_t seed);
+  rect_t bounds(const circle_t* b, const circle_t* e);
+  double area(const circle_t* b, const circle_t* e, size_t thrds, size_t tsts, size_t seed);
+  size_t calc(const circle_t* b, const circle_t* e, rect_t rect, size_t tests, size_t seed);
   bool isInside(double x, double y, const circle_t& c);
 }
 

@@ -12,7 +12,7 @@ bool kuznetsov::isInside(double x, double y, const circle_t& c)
   return dx * dx + dy * dy <= c.r * c.r;
 }
 
-size_t kuznetsov::calc(const set_t& set, rect_t rect, size_t tests, size_t seed)
+size_t kuznetsov::calc(const circle_t* b, const circle_t* e, rect_t rect, size_t tests, size_t seed)
 {
   std::default_random_engine eng(seed);
   std::uniform_real_distribution< double > dist_x(rect.xmin, rect.xmax);
@@ -22,7 +22,7 @@ size_t kuznetsov::calc(const set_t& set, rect_t rect, size_t tests, size_t seed)
   for (size_t i = 0; i < tests; ++i) {
     const double x = dist_x(eng);
     const double y = dist_y(eng);
-    const bool inside = std::any_of(set.circles.cbegin(), set.circles.cend(),
+    const bool inside = std::any_of(b, e,
       [x, y](const circle_t& c) {
         return isInside(x, y, c);
       });
@@ -31,26 +31,26 @@ size_t kuznetsov::calc(const set_t& set, rect_t rect, size_t tests, size_t seed)
   return res;
 }
 
-double kuznetsov::area(const set_t& set, size_t thrds, size_t tests, size_t seed)
+double kuznetsov::area(const circle_t* b, const circle_t* e, size_t thrds, size_t tsts, size_t seed)
 {
-  if (thrds == 0 || tests == 0) {
+  if (thrds == 0 || tsts == 0) {
     throw std::invalid_argument("threads and tests must be positive");
   }
-  if (set.circles.empty()) {
+  if (b == e) {
     return 0.0;
   }
   constexpr size_t max_cores = 1000;
   thrds = std::min(thrds, max_cores);
-  rect_t rect = bounds(set);
-  const size_t test_on_thread = tests / thrds;
-  const size_t last_tests = tests % thrds;
+  rect_t rect = bounds(b, e);
+  const size_t test_on_thread = tsts / thrds;
+  const size_t last_tests = tsts % thrds;
 
   std::vector< std::future< size_t > > res;
   res.reserve(thrds);
 
   for (size_t i = 0; i < thrds; ++i) {
-    res.emplace_back(std::async(
-      std::launch::async, calc, std::cref(set), rect, test_on_thread + (i < last_tests), seed + i));
+    res.emplace_back(std::async(std::launch::async,
+      calc, b, e, rect, test_on_thread + (i < last_tests), seed + i));
   }
 
   double sum{};
@@ -59,17 +59,16 @@ double kuznetsov::area(const set_t& set, size_t thrds, size_t tests, size_t seed
   }
 
   const double rect_square = (rect.xmax - rect.xmin) * (rect.ymax - rect.ymin);
-  return sum * rect_square / tests;
+  return sum * rect_square / tsts;
 }
 
-kuznetsov::rect_t kuznetsov::bounds(const set_t& set)
+kuznetsov::rect_t kuznetsov::bounds(const circle_t* b, const circle_t* e)
 {
-  const circle_t& f = set.circles.front();
-  rect_t r{static_cast< double >(f.x) - f.r,
-    static_cast< double >(f.x) + f.r,
-    static_cast< double >(f.y) - f.r,
-    static_cast< double >(f.y) + f.r};
-  for (auto it = set.circles.cbegin(); it != set.circles.cend(); ++it) {
+  rect_t r{static_cast< double >(b->x) - b->r,
+    static_cast< double >(b->x) + b->r,
+    static_cast< double >(b->y) - b->r,
+    static_cast< double >(b->y) + b->r};
+  for (const circle_t* it = b; it != e; ++it) {
     r.xmin = std::min(r.xmin, static_cast< double >(it->x) - it->r);
     r.xmax = std::max(r.xmax, static_cast< double >(it->x) + it->r);
     r.ymin = std::min(r.ymin, static_cast< double >(it->y) - it->r);
