@@ -50,5 +50,37 @@ kuznetsov::response_t kuznetsov::detail::startCalc(
   return res;
 }
 
+kuznetsov::response_t kuznetsov::detail::finishCalc(size_t id, pending_t& pending, finished_t& finished)
+{
+  auto it = pending.find(id);
+  auto ins = finished.emplace(id, response_t{id, calc_state_t::failed, 0.0, 0.0});
+  response_t& res = ins.first->second;
+  try {
+    result_t r = it->second.get();
+    res.state = calc_state_t::done;
+    res.ms = r.ms;
+    res.area = r.area;
+  } catch (const std::exception& e) {
+    std::cerr << "calculation failed: " << e.what() << '\n';
+  }
+  pending.erase(it);
+  return res;
+}
+
+kuznetsov::response_t kuznetsov::detail::checkCalc(size_t id, bool block, pending_t& pending, finished_t& finished)
+{
+  auto done = finished.find(id);
+  if (done != finished.end()) {
+    return done->second;
+  }
+  auto it = pending.find(id);
+  if (it == pending.end()) {
+    return response_t{id, calc_state_t::failed, 0.0, 0.0};
+  }
+  if (!block && it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+    return response_t{id, calc_state_t::progress, 0.0, 0.0};
+  }
+  return finishCalc(id, pending, finished);
+}
 
 
