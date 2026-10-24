@@ -32,6 +32,15 @@ kuznetsov::Mapping::~Mapping()
   }
 }
 
+kuznetsov::detail::ShmUnlinker::ShmUnlinker(const char* name):
+  name_(name)
+{}
+
+kuznetsov::detail::ShmUnlinker::~ShmUnlinker()
+{
+  shm_unlink(name_);
+}
+
 const kuznetsov::circle_t* kuznetsov::Mapping::circles() const
 {
   return static_cast< const circle_t* >(ptr_);

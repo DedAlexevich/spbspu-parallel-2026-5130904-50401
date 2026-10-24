@@ -63,7 +63,7 @@ std::istream& kuznetsov::detail::operator>>(std::istream& in, NameArg&& arg)
     return in;
   }
   if (isValidName(value)) {
-    arg.ref = value;
+    arg.ref = std::move(value);
   } else {
     in.setstate(std::ios_base::failbit);
   }

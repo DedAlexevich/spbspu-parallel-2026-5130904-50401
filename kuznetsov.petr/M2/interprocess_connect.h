@@ -70,6 +70,17 @@ namespace kuznetsov {
       int fd_;
     };
 
+    class ShmUnlinker {
+    public:
+      explicit ShmUnlinker(const char* name);
+      ShmUnlinker(const ShmUnlinker&) = delete;
+      ShmUnlinker& operator=(const ShmUnlinker&) = delete;
+      ~ShmUnlinker();
+
+    private:
+      const char* name_;
+    };
+
     std::system_error sysError(const char* what);
     size_t shmBytes(size_t count);
   }

@@ -9,7 +9,8 @@ bool kuznetsov::isInside(double x, double y, const circle_t& c)
 {
   const double dx = x - c.x;
   const double dy = y - c.y;
-  return dx * dx + dy * dy <= c.r * c.r;
+  const double r = c.r;
+  return dx * dx + dy * dy <= r * r;
 }
 
 size_t kuznetsov::calc(const circle_t* b, const circle_t* e, rect_t rect, size_t tests, size_t seed)

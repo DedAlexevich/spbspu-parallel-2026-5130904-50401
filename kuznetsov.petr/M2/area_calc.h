@@ -14,7 +14,7 @@ namespace kuznetsov {
   };
 
   struct rect_t {
-    int xmin, xmax, ymin, ymax;
+    double xmin, xmax, ymin, ymax;
   };
 
   rect_t bounds(const circle_t* b, const circle_t* e);
