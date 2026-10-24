@@ -1,9 +1,11 @@
 #include "cli.h"
 
 #include <algorithm>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <unordered_map>
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -220,6 +222,210 @@ void kuznetsov::detail::shutdown(State& st)
       it->second.alive = false;
     }
   }
+}
+
+void kuznetsov::cliProcess(std::istream& in, std::ostream& out)
+{
+  State st{};
+  try {
+    std::unordered_map< std::string, cmd_t > cmds;
+    cmds["circle"] = doCircle;
+    cmds["set"] = doSet;
+    cmds["show"] = doShow;
+    cmds["showset"] = doShowSet;
+    cmds["frame"] = doFrame;
+    cmds["frameset"] = doFrameSet;
+    cmds["spawn"] = doSpawn;
+    cmds["area-on"] = doAreaOn;
+    cmds["status"] = doStatus;
+    cmds["wait"] = doWait;
+
+    std::string cm;
+    while (in >> cm) {
+      auto cmd = cmds.find(cm);
+      if (cmd == cmds.end()) {
+        out << "<UNKNOWN COMMAND>\n";
+        detail::skipLine(in);
+        continue;
+      }
+      try {
+        cmd->second(in, out, st);
+      } catch (const std::system_error& e) {
+        std::cerr << e.what() << '\n';
+        out << "<INVALID COMMAND>\n";
+        detail::skipLine(in);
+      } catch (const std::exception&) {
+        out << "<INVALID COMMAND>\n";
+        detail::skipLine(in);
+      }
+    }
+  } catch (...) {
+    detail::shutdown(st);
+    throw;
+  }
+  detail::shutdown(st);
+}
+
+void kuznetsov::doCircle(std::istream& in, std::ostream&, State& st)
+{
+  using detail::arg;
+  std::string name;
+  int r = 0, x = 0, y = 0;
+  in >> detail::nameArg(name) >> detail::positiveArg(r) >> arg(x) >> arg(y);
+  detail::requireLineEnd(in);
+  if (st.circles.count(name)) {
+    throw std::invalid_argument("circle exists");
+  }
+  st.circles.emplace(name, circle_t{r, x, y});
+}
+
+void kuznetsov::doSet(std::istream& in, std::ostream&, State& st)
+{
+  using detail::arg;
+  std::string name;
+  long size = 0;
+  in >> detail::nameArg(name) >> detail::positiveArg(size);
+  if (!in) {
+    throw std::invalid_argument("bad set header");
+  }
+  set_t set{};
+  for (long i = 0; i < size; ++i) {
+    std::string shape;
+    if (!(in >> arg(shape))) {
+      throw std::invalid_argument("not enough shapes");
+    }
+    set.circles.push_back(st.circles.at(shape));
+  }
+  detail::requireLineEnd(in);
+  if (st.sets.count(name)) {
+    throw std::invalid_argument("set exists");
+  }
+  st.sets.emplace(name, std::move(set));
+}
+
+void kuznetsov::doShow(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  detail::printCircle(out, st.circles.at(name));
+}
+
+void kuznetsov::doShowSet(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  const set_t& set = st.sets.at(name);
+  for (auto it = set.circles.cbegin(); it != set.circles.cend(); ++it) {
+    detail::printCircle(out, *it);
+  }
+}
+
+void kuznetsov::doFrame(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  const circle_t& c = st.circles.at(name);
+  detail::printRect(out, bounds(&c, &c + 1));
+}
+
+void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  const set_t& set = st.sets.at(name);
+  const circle_t* first = set.circles.data();
+  detail::printRect(out, bounds(first, first + set.circles.size()));
+}
+
+void kuznetsov::doSpawn(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  long seed = 0;
+  in >> detail::nameArg(name) >> detail::arg(seed);
+  detail::requireLineEnd(in);
+  if (seed < 0 || st.procs.count(name)) {
+    throw std::invalid_argument("bad spawn");
+  }
+  auto ins = st.procs.emplace(name, proc_t{-1, -1, -1, false});
+  try {
+    ins.first->second = detail::startProc(out, st, static_cast< size_t >(seed));
+  } catch (...) {
+    st.procs.erase(ins.first);
+    throw;
+  }
+}
+
+void kuznetsov::doAreaOn(std::istream& in, std::ostream&, State& st)
+{
+  using detail::arg;
+  std::string proc_name, calc_name, set_name;
+  long threads = 0, tries = 0;
+  in >> arg(proc_name) >> detail::nameArg(calc_name) >> arg(set_name);
+  in >> detail::positiveArg(threads) >> detail::positiveArg(tries);
+  detail::requireLineEnd(in);
+  if (st.calcs.count(calc_name)) {
+    throw std::invalid_argument("calculation exists");
+  }
+  const set_t& set = st.sets.at(set_name);
+  proc_t& proc = st.procs.at(proc_name);
+  if (!proc.alive) {
+    throw std::invalid_argument("process is terminated");
+  }
+
+  const size_t id = st.next_id++;
+  const std::string shm = "/kuznetsov-" + std::to_string(getpid()) + "-" + std::to_string(id);
+  auto ins = st.calcs.emplace(calc_name, calc_t{proc_name, id, calc_state_t::progress, 0.0, 0.0});
+
+  bool delivered = false;
+  response_t ack{};
+  try {
+    writeSetShm(shm, set);
+    detail::ShmUnlinker unlinker(shm.c_str());
+    request_t req{};
+    req.kind = request_kind_t::calc;
+    req.calc_id = id;
+    req.threads = static_cast< size_t >(threads);
+    req.tries = static_cast< size_t >(tries);
+    req.count = set.circles.size();
+    std::strncpy(req.shm_name, shm.c_str(), shm_name_size - 1);
+    delivered = exchange(proc.cmd_wr, proc.res_rd, req, ack) && ack.calc_id == id;
+  } catch (...) {
+    st.calcs.erase(ins.first);
+    throw;
+  }
+  if (!delivered) {
+    st.calcs.erase(ins.first);
+    detail::markDead(st, proc_name);
+    throw std::runtime_error("process does not respond");
+  }
+  if (ack.state != calc_state_t::progress) {
+    st.calcs.erase(ins.first);
+    throw std::runtime_error("calculation was not started");
+  }
+}
+
+void kuznetsov::doStatus(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  calc_t& calc = st.calcs.at(name);
+  detail::queryCalc(st, calc, request_kind_t::status);
+  detail::printStatus(out, name, calc);
+}
+
+void kuznetsov::doWait(std::istream& in, std::ostream& out, State& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  calc_t& calc = st.calcs.at(name);
+  detail::queryCalc(st, calc, request_kind_t::wait);
+  detail::printStatus(out, name, calc);
 }
 
 
