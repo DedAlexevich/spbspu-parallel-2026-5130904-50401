@@ -12,13 +12,16 @@ namespace kuznetsov {
   enum class request_kind_t {
     calc,
     status,
-    wait
+    wait,
+    timeout,
+    kill
   };
 
   enum class calc_state_t {
     progress,
     done,
-    failed
+    failed,
+    canceled
   };
 
   struct request_t {
@@ -27,6 +30,7 @@ namespace kuznetsov {
     size_t threads;
     size_t tries;
     size_t count;
+    size_t wait_ms;
     char shm_name[shm_name_size];
   };
 

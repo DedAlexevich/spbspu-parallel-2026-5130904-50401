@@ -130,6 +130,9 @@ void kuznetsov::detail::printStatus(std::ostream& out, const std::string& name, 
   case calc_state_t::failed:
     std::cerr << "calculation " << name << " failed\n";
     break;
+  case calc_state_t::canceled:
+    out << calc.proc << " <CANCELED>\n";
+    break;
   }
 }
 
@@ -155,7 +158,7 @@ void kuznetsov::detail::markDead(state_t& st, const std::string& name)
   }
 }
 
-void kuznetsov::detail::queryCalc(state_t& st, calc_t& calc, request_kind_t kind)
+void kuznetsov::detail::queryCalc(state_t& st, calc_t& calc, request_kind_t kind, size_t wait_ms)
 {
   const proc_t& proc = st.procs.at(calc.proc);
   if (calc.state != calc_state_t::progress || !proc.alive) {
@@ -164,6 +167,7 @@ void kuznetsov::detail::queryCalc(state_t& st, calc_t& calc, request_kind_t kind
   request_t req{};
   req.kind = kind;
   req.calc_id = calc.id;
+  req.wait_ms = wait_ms;
   response_t res{};
   if (!exchange(proc.cmd_wr, proc.res_rd, req, res) || res.calc_id != calc.id) {
     markDead(st, calc.proc);
@@ -223,11 +227,10 @@ kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const state_t&
     close(cmd[0]);
     close(res[1]);
     std::_Exit(code);
-  } else {
-    close(cmd[0]);
-    close(res[1]);
-    return proc_t{pid, cmd[1], res[0], true};
   }
+  close(cmd[0]);
+  close(res[1]);
+  return proc_t{pid, cmd[1], res[0], true};
 }
 
 void kuznetsov::detail::shutdown(state_t& st)
@@ -263,6 +266,8 @@ void kuznetsov::cliProcess(std::istream& in, std::ostream& out)
     cmds["area-on"] = doAreaOn;
     cmds["status"] = doStatus;
     cmds["wait"] = doWait;
+    cmds["timeout"] = doTimeout;
+    cmds["kill"] = doKill;
 
     std::string cm;
     while (in >> cm) {
@@ -465,7 +470,7 @@ void kuznetsov::doStatus(std::istream& in, std::ostream& out, state_t& st)
   in >> detail::arg(name);
   detail::requireLineEnd(in);
   calc_t& calc = st.calcs.at(name);
-  detail::queryCalc(st, calc, request_kind_t::status);
+  detail::queryCalc(st, calc, request_kind_t::status, 0);
   detail::printStatus(out, name, calc);
 }
 
@@ -475,6 +480,66 @@ void kuznetsov::doWait(std::istream& in, std::ostream& out, state_t& st)
   in >> detail::arg(name);
   detail::requireLineEnd(in);
   calc_t& calc = st.calcs.at(name);
-  detail::queryCalc(st, calc, request_kind_t::wait);
+  detail::queryCalc(st, calc, request_kind_t::wait, 0);
   detail::printStatus(out, name, calc);
+}
+
+void kuznetsov::doTimeout(std::istream& in, std::ostream& out, state_t& st)
+{
+  using detail::arg;
+  std::string name;
+  long ms = 0;
+  in >> arg(name) >> arg(ms);
+  detail::requireLineEnd(in);
+  if (ms < 0) {
+    throw std::invalid_argument("bad timeout");
+  }
+  calc_t& calc = st.calcs.at(name);
+  detail::queryCalc(st, calc, request_kind_t::timeout, static_cast< size_t >(ms));
+  detail::printStatus(out, name, calc);
+}
+
+void kuznetsov::doKill(std::istream& in, std::ostream&, state_t& st)
+{
+  std::string name;
+  in >> detail::arg(name);
+  detail::requireLineEnd(in);
+  proc_t& proc = st.procs.at(name);
+  if (!proc.alive) {
+    throw std::invalid_argument("process is terminated");
+  }
+
+  calc_t* current = nullptr;
+  for (auto it = st.calcs.begin(); it != st.calcs.end(); ++it) {
+    calc_t& calc = it->second;
+    if (calc.proc != name || calc.state != calc_state_t::progress) {
+      continue;
+    }
+    detail::queryCalc(st, calc, request_kind_t::status, 0);
+    if (calc.state == calc_state_t::progress && (!current || calc.id < current->id)) {
+      current = &calc;
+    }
+  }
+  if (current) {
+    detail::queryCalc(st, *current, request_kind_t::wait, 0);
+  }
+  if (!proc.alive) {
+    return;
+  }
+
+  for (auto it = st.calcs.begin(); it != st.calcs.end(); ++it) {
+    if (it->second.proc == name && it->second.state == calc_state_t::progress) {
+      it->second.state = calc_state_t::canceled;
+    }
+  }
+  request_t req{};
+  req.kind = request_kind_t::kill;
+  response_t ack{};
+  exchange(proc.cmd_wr, proc.res_rd, req, ack);
+  proc.alive = false;
+  close(proc.cmd_wr);
+  close(proc.res_rd);
+  proc.cmd_wr = -1;
+  proc.res_rd = -1;
+  waitpid(proc.pid, nullptr, 0);
 }

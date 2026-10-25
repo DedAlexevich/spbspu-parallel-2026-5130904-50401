@@ -50,6 +50,8 @@ namespace kuznetsov {
   void doAreaOn(std::istream& in, std::ostream& out, state_t& st);
   void doStatus(std::istream& in, std::ostream& out, state_t& st);
   void doWait(std::istream& in, std::ostream& out, state_t& st);
+  void doTimeout(std::istream& in, std::ostream& out, state_t& st);
+  void doKill(std::istream& in, std::ostream& out, state_t& st);
 
   namespace detail {
     class IOGuard {
@@ -91,7 +93,7 @@ namespace kuznetsov {
     void addShape(state_t& st, const std::string& name, const ellipse_t& el);
 
     void markDead(state_t& st, const std::string& name);
-    void queryCalc(state_t& st, calc_t& calc, request_kind_t kind);
+    void queryCalc(state_t& st, calc_t& calc, request_kind_t kind, size_t wait_ms);
     void closeOtherChildren(const state_t& st);
     proc_t startProc(std::ostream& out, const state_t& st, size_t seed);
     void shutdown(state_t& st);
