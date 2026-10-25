@@ -49,14 +49,14 @@ namespace kuznetsov {
     Mapping& operator=(const Mapping&) = delete;
     Mapping& operator=(Mapping&&) = delete;
     ~Mapping();
-    const circle_t* circles() const;
+    const ellipse_t* shapes() const;
 
   private:
     void* ptr_;
     size_t size_;
   };
 
-  void writeSetShm(const std::string& name, const set_t& set);
+  void writeSetShm(const std::string& name, const set_t& shapes);
   Mapping openSetShm(const char* name, size_t count);
 
   namespace detail {

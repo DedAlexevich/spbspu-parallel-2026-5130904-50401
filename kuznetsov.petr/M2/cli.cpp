@@ -1,17 +1,17 @@
 #include "cli.h"
 
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <stdexcept>
-
-#include <stdio.h>
-#incldue < string>
-#include <cstdlib>
 #include <limits>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -89,9 +89,23 @@ kuznetsov::detail::NameArg kuznetsov::detail::nameArg(std::string& ref)
   return NameArg{ref};
 }
 
-void kuznetsov::detail::printCircle(std::ostream& out, const circle_t& c)
+void kuznetsov::detail::printShape(std::ostream& out, const ellipse_t& el)
 {
-  out << c.r << " (" << c.x << ' ' << c.y << ")\n";
+  if (el.is_circle) {
+    out << el.rx << " (" << el.x << ' ' << el.y << ")\n";
+    return;
+  }
+  const IOGuard g(out);
+  out << el.rx << ' ' << el.ry << " (" << el.x << ' ' << el.y << ") ";
+  out << std::fixed << std::setprecision(3) << el.angle << '\n';
+}
+
+void kuznetsov::detail::addShape(state_t& st, const std::string& name, const ellipse_t& el)
+{
+  if (st.shapes.count(name)) {
+    throw std::invalid_argument("shape exists");
+  }
+  st.shapes.emplace(name, el);
 }
 
 void kuznetsov::detail::printRect(std::ostream& out, const rect_t& r)
@@ -238,6 +252,8 @@ void kuznetsov::cliProcess(std::istream& in, std::ostream& out)
   try {
     std::unordered_map< std::string, cmd_t > cmds;
     cmds["circle"] = doCircle;
+    cmds["ellipse"] = doEllipse;
+    cmds["rotate"] = doRotate;
     cmds["set"] = doSet;
     cmds["show"] = doShow;
     cmds["showset"] = doShowSet;
@@ -281,10 +297,36 @@ void kuznetsov::doCircle(std::istream& in, std::ostream&, state_t& st)
   int r = 0, x = 0, y = 0;
   in >> detail::nameArg(name) >> detail::positiveArg(r) >> arg(x) >> arg(y);
   detail::requireLineEnd(in);
-  if (st.circles.count(name)) {
-    throw std::invalid_argument("circle exists");
+  detail::addShape(st, name, ellipse_t{0.0, r, r, x, y, true});
+}
+
+void kuznetsov::doEllipse(std::istream& in, std::ostream&, state_t& st)
+{
+  using detail::arg;
+  std::string name;
+  int rx = 0, ry = 0, x = 0, y = 0;
+  in >> detail::nameArg(name) >> detail::positiveArg(rx) >> detail::positiveArg(ry) >> arg(x) >> arg(y);
+  detail::requireLineEnd(in);
+  detail::addShape(st, name, ellipse_t{0.0, rx, ry, x, y, false});
+}
+
+void kuznetsov::doRotate(std::istream& in, std::ostream&, state_t& st)
+{
+  using detail::arg;
+  std::string name;
+  double ksi = 0.0;
+  in >> arg(name) >> arg(ksi);
+  detail::requireLineEnd(in);
+  if (!std::isfinite(ksi)) {
+    throw std::invalid_argument("bad angle");
   }
-  st.circles.emplace(name, circle_t{r, x, y});
+  ellipse_t& el = st.shapes.at(name);
+  constexpr double full_turn = 2.0 * 3.141592;
+  double angle = std::fmod(el.angle + ksi, full_turn);
+  if (angle < 0.0) {
+    angle += full_turn;
+  }
+  el.angle = angle;
 }
 
 void kuznetsov::doSet(std::istream& in, std::ostream&, state_t& st)
@@ -297,12 +339,13 @@ void kuznetsov::doSet(std::istream& in, std::ostream&, state_t& st)
     throw std::invalid_argument("bad set header");
   }
   set_t set{};
+  set.shapes.reserve(size);
   for (long i = 0; i < size; ++i) {
     std::string shape;
     if (!(in >> arg(shape))) {
       throw std::invalid_argument("not enough shapes");
     }
-    set.circles.push_back(st.circles.at(shape));
+    set.shapes.push_back(st.shapes.at(shape));
   }
   detail::requireLineEnd(in);
   if (st.sets.count(name)) {
@@ -316,7 +359,7 @@ void kuznetsov::doShow(std::istream& in, std::ostream& out, state_t& st)
   std::string name;
   in >> detail::arg(name);
   detail::requireLineEnd(in);
-  detail::printCircle(out, st.circles.at(name));
+  detail::printShape(out, st.shapes.at(name));
 }
 
 void kuznetsov::doShowSet(std::istream& in, std::ostream& out, state_t& st)
@@ -325,8 +368,8 @@ void kuznetsov::doShowSet(std::istream& in, std::ostream& out, state_t& st)
   in >> detail::arg(name);
   detail::requireLineEnd(in);
   const set_t& set = st.sets.at(name);
-  for (auto it = set.circles.cbegin(); it != set.circles.cend(); ++it) {
-    detail::printCircle(out, *it);
+  for (auto it = set.shapes.cbegin(); it != set.shapes.cend(); ++it) {
+    detail::printShape(out, *it);
   }
 }
 
@@ -335,8 +378,8 @@ void kuznetsov::doFrame(std::istream& in, std::ostream& out, state_t& st)
   std::string name;
   in >> detail::arg(name);
   detail::requireLineEnd(in);
-  const circle_t& c = st.circles.at(name);
-  detail::printRect(out, bounds(&c, &c + 1));
+  const ellipse_t& el = st.shapes.at(name);
+  detail::printRect(out, bounds(&el, &el + 1));
 }
 
 void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, state_t& st)
@@ -345,8 +388,8 @@ void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, state_t& st)
   in >> detail::arg(name);
   detail::requireLineEnd(in);
   const set_t& set = st.sets.at(name);
-  const circle_t* first = set.circles.data();
-  detail::printRect(out, bounds(first, first + set.circles.size()));
+  const ellipse_t* first = set.shapes.data();
+  detail::printRect(out, bounds(first, first + set.shapes.size()));
 }
 
 void kuznetsov::doSpawn(std::istream& in, std::ostream& out, state_t& st)
@@ -398,7 +441,7 @@ void kuznetsov::doAreaOn(std::istream& in, std::ostream&, state_t& st)
     req.calc_id = id;
     req.threads = static_cast< size_t >(threads);
     req.tries = static_cast< size_t >(tries);
-    req.count = set.circles.size();
+    req.count = set.shapes.size();
     std::strncpy(req.shm_name, shm.c_str(), shm_name_size - 1);
     delivered = exchange(proc.cmd_wr, proc.res_rd, req, ack) && ack.calc_id == id;
   } catch (...) {

@@ -6,6 +6,7 @@
 #include <istream>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "interprocess_connect.h"
 
@@ -26,7 +27,7 @@ namespace kuznetsov {
   };
 
   struct state_t {
-    std::map< std::string, circle_t > circles;
+    std::map< std::string, ellipse_t > shapes;
     std::map< std::string, set_t > sets;
     std::map< std::string, proc_t > procs;
     std::map< std::string, calc_t > calcs;
@@ -38,6 +39,8 @@ namespace kuznetsov {
   void cliProcess(std::istream& in, std::ostream& out);
 
   void doCircle(std::istream& in, std::ostream& out, state_t& st);
+  void doEllipse(std::istream& in, std::ostream& out, state_t& st);
+  void doRotate(std::istream& in, std::ostream& out, state_t& st);
   void doSet(std::istream& in, std::ostream& out, state_t& st);
   void doShow(std::istream& in, std::ostream& out, state_t& st);
   void doShowSet(std::istream& in, std::ostream& out, state_t& st);
@@ -81,9 +84,11 @@ namespace kuznetsov {
     void skipLine(std::istream& in);
     bool isValidName(const std::string& name);
 
-    void printCircle(std::ostream& out, const circle_t& c);
+    void printShape(std::ostream& out, const ellipse_t& el);
     void printRect(std::ostream& out, const rect_t& r);
     void printStatus(std::ostream& out, const std::string& name, const calc_t& calc);
+
+    void addShape(state_t& st, const std::string& name, const ellipse_t& el);
 
     void markDead(state_t& st, const std::string& name);
     void queryCalc(state_t& st, calc_t& calc, request_kind_t kind);

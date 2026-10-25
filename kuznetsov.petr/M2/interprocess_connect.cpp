@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <utility>
-
+#include <vector>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -43,9 +43,9 @@ kuznetsov::detail::ShmUnlinker::~ShmUnlinker()
   shm_unlink(name_);
 }
 
-const kuznetsov::circle_t* kuznetsov::Mapping::circles() const
+const kuznetsov::ellipse_t* kuznetsov::Mapping::shapes() const
 {
-  return static_cast< const circle_t* >(ptr_);
+  return static_cast< const ellipse_t* >(ptr_);
 }
 
 std::system_error kuznetsov::detail::sysError(const char* what)
@@ -55,7 +55,7 @@ std::system_error kuznetsov::detail::sysError(const char* what)
 
 size_t kuznetsov::detail::shmBytes(size_t count)
 {
-  return count * sizeof(circle_t);
+  return count * sizeof(ellipse_t);
 }
 
 size_t kuznetsov::sendAll(int& err, int wr, const char* b, size_t k)
@@ -95,7 +95,7 @@ bool kuznetsov::exchange(int wr, int rd, const request_t& req, response_t& res)
 
 void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
 {
-  const size_t bytes = detail::shmBytes(set.circles.size());
+  const size_t bytes = detail::shmBytes(set.shapes.size());
   int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
   if (fd < 0) {
@@ -114,7 +114,7 @@ void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
     }
 
     Mapping map(ptr, bytes);
-    std::copy(set.circles.cbegin(), set.circles.cend(), static_cast< circle_t* >(ptr));
+    std::copy(set.shapes.cbegin(), set.shapes.cend(), static_cast< ellipse_t* >(ptr));
   } catch (...) {
     shm_unlink(name.c_str());
     throw;

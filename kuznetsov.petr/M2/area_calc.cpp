@@ -1,21 +1,25 @@
 #include "area_calc.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <future>
 #include <random>
 #include <stdexcept>
 #include <vector>
 
-bool kuznetsov::isInside(double x, double y, const circle_t& c)
+bool kuznetsov::isInside(double x, double y, const ellipse_t& c)
 {
   const double dx = x - c.x;
   const double dy = y - c.y;
-  const double r = c.r;
-  return dx * dx + dy * dy <= r * r;
+  const double cs = std::cos(c.angle);
+  const double sn = std::sin(c.angle);
+  const double u = (dx * cs + dy * sn) / c.rx;
+  const double v = (dy * cs - dx * sn) / c.ry;
+  return u * u + v * v <= 1.0;
 }
 
-size_t kuznetsov::calc(const circle_t* b, const circle_t* e, rect_t rect, size_t tests, size_t seed)
+size_t kuznetsov::calc(const ellipse_t* b, const ellipse_t* e, rect_t rect, size_t tests, size_t seed)
 {
   std::default_random_engine eng(seed);
   std::uniform_real_distribution< double > dist_x(rect.xmin, rect.xmax);
@@ -25,16 +29,16 @@ size_t kuznetsov::calc(const circle_t* b, const circle_t* e, rect_t rect, size_t
   for (size_t i = 0; i < tests; ++i) {
     const double x = dist_x(eng);
     const double y = dist_y(eng);
-    const bool inside = std::any_of(b, e,
-      [x, y](const circle_t& c) {
-        return isInside(x, y, c);
+    res += std::any_of(b, e,
+      [x, y](const ellipse_t& el)
+      {
+        return isInside(x, y, el);
       });
-    res += inside;
   }
   return res;
 }
 
-double kuznetsov::area(const circle_t* b, const circle_t* e, size_t thrds, size_t tsts, size_t seed)
+double kuznetsov::area(const ellipse_t* b, const ellipse_t* e, size_t thrds, size_t tsts, size_t seed)
 {
   if (thrds == 0 || tsts == 0) {
     throw std::invalid_argument("threads and tests must be positive");
@@ -64,17 +68,25 @@ double kuznetsov::area(const circle_t* b, const circle_t* e, size_t thrds, size_
   return sum * rect_square / tsts;
 }
 
-kuznetsov::rect_t kuznetsov::bounds(const circle_t* b, const circle_t* e)
+kuznetsov::rect_t kuznetsov::bounds(const ellipse_t* b, const ellipse_t* e)
 {
-  rect_t r{static_cast< double >(b->x) - b->r,
-    static_cast< double >(b->x) + b->r,
-    static_cast< double >(b->y) - b->r,
-    static_cast< double >(b->y) + b->r};
-  for (const circle_t* it = b; it != e; ++it) {
-    r.xmin = std::min(r.xmin, static_cast< double >(it->x) - it->r);
-    r.xmax = std::max(r.xmax, static_cast< double >(it->x) + it->r);
-    r.ymin = std::min(r.ymin, static_cast< double >(it->y) - it->r);
-    r.ymax = std::max(r.ymax, static_cast< double >(it->y) + it->r);
+  rect_t r{};
+  for (const ellipse_t* it = b; it != e; ++it) {
+    const double c = std::cos(it->angle);
+    const double s = std::sin(it->angle);
+    const double rx = it->rx;
+    const double ry = it->ry;
+    const double hx = std::sqrt(rx * rx * c * c + ry * ry * s * s);
+    const double hy = std::sqrt(rx * rx * s * s + ry * ry * c * c);
+    const rect_t cur{it->x - hx, it->x + hx, it->y - hy, it->y + hy};
+    if (it == b) {
+      r = cur;
+    } else {
+      r.xmin = std::min(r.xmin, cur.xmin);
+      r.xmax = std::max(r.xmax, cur.xmax);
+      r.ymin = std::min(r.ymin, cur.ymin);
+      r.ymax = std::max(r.ymax, cur.ymax);
+    }
   }
   return r;
 }

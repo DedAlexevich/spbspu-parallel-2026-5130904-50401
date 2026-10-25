@@ -19,7 +19,7 @@ double kuznetsov::detail::Clicker::millisec() const
 kuznetsov::detail::result_t kuznetsov::detail::runArea(
   const Mapping& map, size_t count, size_t threads, size_t tries, size_t seed)
 {
-  const circle_t* first = map.circles();
+  const ellipse_t* first = map.shapes();
   Clicker cl;
   const double value = area(first, first + count, threads, tries, seed);
   const double ms = cl.millisec();
