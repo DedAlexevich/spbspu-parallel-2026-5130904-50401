@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -326,7 +327,7 @@ void kuznetsov::doRotate(std::istream& in, std::ostream&, state_t& st)
     throw std::invalid_argument("bad angle");
   }
   ellipse_t& el = st.shapes.at(name);
-  constexpr double full_turn = 2.0 * 3.141592;
+  constexpr double full_turn = 2.0 * M_PI;
   double angle = std::fmod(el.angle + ksi, full_turn);
   if (angle < 0.0) {
     angle += full_turn;
@@ -350,7 +351,7 @@ void kuznetsov::doSet(std::istream& in, std::ostream&, state_t& st)
     if (!(in >> arg(shape))) {
       throw std::invalid_argument("not enough shapes");
     }
-    set.shapes.push_back(st.shapes.at(shape));
+    set.shapes.push_back(&st.shapes.at(shape));
   }
   detail::requireLineEnd(in);
   if (st.sets.count(name)) {
@@ -374,7 +375,7 @@ void kuznetsov::doShowSet(std::istream& in, std::ostream& out, state_t& st)
   detail::requireLineEnd(in);
   const set_t& set = st.sets.at(name);
   for (auto it = set.shapes.cbegin(); it != set.shapes.cend(); ++it) {
-    detail::printShape(out, *it);
+    detail::printShape(out, **it);
   }
 }
 
@@ -393,8 +394,12 @@ void kuznetsov::doFrameSet(std::istream& in, std::ostream& out, state_t& st)
   in >> detail::arg(name);
   detail::requireLineEnd(in);
   const set_t& set = st.sets.at(name);
-  const ellipse_t* first = set.shapes.data();
-  detail::printRect(out, bounds(first, first + set.shapes.size()));
+  std::vector< ellipse_t > shapes;
+  shapes.reserve(set.shapes.size());
+  for (auto it = set.shapes.cbegin(); it != set.shapes.cend(); ++it) {
+    shapes.push_back(**it);
+  }
+  detail::printRect(out, bounds(shapes.data(), shapes.data() + shapes.size()));
 }
 
 void kuznetsov::doSpawn(std::istream& in, std::ostream& out, state_t& st)

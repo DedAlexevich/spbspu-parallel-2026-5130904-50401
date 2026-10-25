@@ -20,7 +20,7 @@ namespace kuznetsov {
       double millisec() const;
 
     private:
-      std::chrono::time_point< std::chrono::high_resolution_clock > start_;
+      std::chrono::time_point< std::chrono::steady_clock > start_;
     };
 
     using pending_t = std::map< size_t, std::shared_future< result_t > >;

@@ -12,7 +12,7 @@ namespace kuznetsov {
   };
 
   struct set_t {
-    std::vector< ellipse_t > shapes;
+    std::vector< const ellipse_t* > shapes;
   };
 
   struct rect_t {

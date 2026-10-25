@@ -1,6 +1,5 @@
 #include "interprocess_connect.h"
 
-#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -115,7 +114,10 @@ void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
     }
 
     Mapping map(ptr, bytes);
-    std::copy(set.shapes.cbegin(), set.shapes.cend(), static_cast< ellipse_t* >(ptr));
+    ellipse_t* dst = static_cast< ellipse_t* >(ptr);
+    for (auto it = set.shapes.cbegin(); it != set.shapes.cend(); ++it) {
+      *dst++ = **it;
+    }
   } catch (...) {
     shm_unlink(name.c_str());
     throw;
