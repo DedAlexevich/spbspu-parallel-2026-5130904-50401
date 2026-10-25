@@ -111,7 +111,7 @@ void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
 
   try {
     const detail::FdGuard fg(fd);
-    if (ftruncate(fd, static_cast< off_t >(bytes)) < 0) {
+    if (ftruncate(fd, static_cast< long >(bytes)) < 0) {
       throw detail::sysError("ftruncate");
     }
 

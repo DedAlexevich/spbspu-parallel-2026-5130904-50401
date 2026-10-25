@@ -326,9 +326,6 @@ void kuznetsov::doRotate(std::istream& in, std::ostream&, state_t& st)
   double ksi = 0.0;
   in >> arg(name) >> arg(ksi);
   detail::requireLineEnd(in);
-  if (!std::isfinite(ksi)) {
-    throw std::invalid_argument("bad angle");
-  }
   ellipse_t& el = st.shapes.at(name);
   constexpr double full_turn = 2.0 * M_PI;
   double angle = std::fmod(el.angle + ksi, full_turn);
@@ -439,7 +436,6 @@ void kuznetsov::doAreaOn(std::istream& in, std::ostream&, state_t& st)
   if (!proc.alive) {
     throw std::invalid_argument("process is terminated");
   }
-
   const size_t id = st.next_id++;
   const std::string shm = "/kuznetsov-" + std::to_string(getpid()) + "-" + std::to_string(id);
   auto ins = st.calcs.emplace(calc_name, calc_t{proc_name, id, calc_state_t::progress, 0.0, 0.0});
