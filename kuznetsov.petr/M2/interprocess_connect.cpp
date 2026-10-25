@@ -1,12 +1,19 @@
 #include "interprocess_connect.h"
 
+#include <cerrno>
+#include <cstddef>
+#include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
 #include <fcntl.h>
+#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "area_calc.h"
 
 kuznetsov::detail::FdGuard::FdGuard(int fd):
   fd_(fd)
@@ -96,24 +103,24 @@ bool kuznetsov::exchange(int wr, int rd, const request_t& req, response_t& res)
 void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
 {
   const size_t bytes = detail::shmBytes(set.shapes.size());
-  int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+  const int fd = shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
   if (fd < 0) {
     throw detail::sysError("shm_open");
   }
 
   try {
-    detail::FdGuard fg(fd);
+    const detail::FdGuard fg(fd);
     if (ftruncate(fd, static_cast< off_t >(bytes)) < 0) {
       throw detail::sysError("ftruncate");
     }
 
-    void* ptr = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    void* const ptr = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (ptr == MAP_FAILED) {
       throw detail::sysError("mmap");
     }
 
-    Mapping map(ptr, bytes);
+    const Mapping map(ptr, bytes);
     ellipse_t* dst = static_cast< ellipse_t* >(ptr);
     for (auto it = set.shapes.cbegin(); it != set.shapes.cend(); ++it) {
       *dst++ = **it;
@@ -127,14 +134,14 @@ void kuznetsov::writeSetShm(const std::string& name, const set_t& set)
 kuznetsov::Mapping kuznetsov::openSetShm(const char* name, size_t count)
 {
   const size_t bytes = detail::shmBytes(count);
-  int fd = shm_open(name, O_RDONLY, 0);
+  const int fd = shm_open(name, O_RDONLY, 0);
 
   if (fd < 0) {
     throw detail::sysError("shm_open");
   }
-  detail::FdGuard fg(fd);
+  const detail::FdGuard fg(fd);
 
-  void* ptr = mmap(nullptr, bytes, PROT_READ, MAP_SHARED, fd, 0);
+  void* const ptr = mmap(nullptr, bytes, PROT_READ, MAP_SHARED, fd, 0);
   if (ptr == MAP_FAILED) {
     throw detail::sysError("mmap");
   }

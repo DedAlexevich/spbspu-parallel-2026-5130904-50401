@@ -37,7 +37,6 @@ size_t kuznetsov::calc(const ellipse_t* b, const ellipse_t* e, rect_t rect, size
     res += inside;
   }
   return res;
-  return res;
 }
 
 double kuznetsov::area(const ellipse_t* b, const ellipse_t* e, size_t thrds, size_t tsts, size_t seed)
@@ -50,7 +49,7 @@ double kuznetsov::area(const ellipse_t* b, const ellipse_t* e, size_t thrds, siz
   }
   constexpr size_t max_cores = 1000;
   thrds = std::min(thrds, max_cores);
-  rect_t rect = bounds(b, e);
+  const rect_t rect = bounds(b, e);
   const size_t test_on_thread = tsts / thrds;
   const size_t last_tests = tsts % thrds;
 

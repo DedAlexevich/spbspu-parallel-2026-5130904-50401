@@ -1,13 +1,16 @@
 #include "cli.h"
 
 #include <cmath>
+#include <math.h>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -445,7 +448,7 @@ void kuznetsov::doAreaOn(std::istream& in, std::ostream&, state_t& st)
   response_t ack{};
   try {
     writeSetShm(shm, set);
-    detail::ShmUnlinker unlinker(shm.c_str());
+    const detail::ShmUnlinker unlinker(shm.c_str());
     request_t req{};
     req.kind = request_kind_t::calc;
     req.calc_id = id;

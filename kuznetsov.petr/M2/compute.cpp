@@ -1,8 +1,17 @@
 #include "compute.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
+#include <exception>
+#include <future>
 #include <iostream>
+#include <ratio>
+#include <string>
+#include <utility>
+
+#include "area_calc.h"
+#include "interprocess_connect.h"
 
 kuznetsov::detail::Clicker::Clicker():
   start_(std::chrono::steady_clock::now())
@@ -15,24 +24,24 @@ double kuznetsov::detail::Clicker::millisec() const
 }
 
 kuznetsov::detail::result_t kuznetsov::detail::runArea(
-  const Mapping& map, std::shared_future< result_t > prev, size_t count, size_t threads, size_t tries, size_t seed)
+    const Mapping& map, std::shared_future< result_t > prev, size_t count, size_t threads, size_t tries, size_t seed)
 {
   if (prev.valid()) {
     prev.wait();
   }
-  const ellipse_t* first = map.shapes();
-  Clicker cl;
+  const ellipse_t* const first = map.shapes();
+  const Clicker cl;
   const double value = area(first, first + count, threads, tries, seed);
   const double ms = cl.millisec();
   return result_t{ms, value};
 }
 
 kuznetsov::response_t kuznetsov::detail::startCalc(
-  const request_t& req, size_t seed, pending_t& pending, finished_t& finished)
+    const request_t& req, size_t seed, pending_t& pending, finished_t& finished)
 {
   response_t res{req.calc_id, calc_state_t::failed, 0.0, 0.0};
   try {
-    const char* end = std::find(req.shm_name, req.shm_name + shm_name_size, '\0');
+    const char* const end = std::find(req.shm_name, req.shm_name + shm_name_size, '\0');
     const std::string name(req.shm_name, end);
     Mapping map = openSetShm(name.c_str(), req.count);
     std::shared_future< result_t > prev;
@@ -41,8 +50,9 @@ kuznetsov::response_t kuznetsov::detail::startCalc(
     }
     auto ins = pending.emplace(req.calc_id, std::shared_future< result_t >{});
     try {
-      ins.first->second = std::async(std::launch::async,
-        runArea, std::move(map), prev, req.count, req.threads, req.tries, seed).share();
+      ins.first->second
+          = std::async(std::launch::async, runArea, std::move(map), prev, req.count, req.threads, req.tries, seed)
+                .share();
     } catch (...) {
       pending.erase(ins.first);
       throw;
@@ -61,7 +71,7 @@ kuznetsov::response_t kuznetsov::detail::finishCalc(size_t id, pending_t& pendin
   auto ins = finished.emplace(id, response_t{id, calc_state_t::failed, 0.0, 0.0});
   response_t& res = ins.first->second;
   try {
-    result_t r = it->second.get();
+    const result_t r = it->second.get();
     res.state = calc_state_t::done;
     res.ms = r.ms;
     res.area = r.area;
@@ -72,8 +82,8 @@ kuznetsov::response_t kuznetsov::detail::finishCalc(size_t id, pending_t& pendin
   return res;
 }
 
-kuznetsov::response_t kuznetsov::detail::checkCalc(size_t id,
-  bool block, size_t wait_ms, pending_t& pending, finished_t& finished)
+kuznetsov::response_t kuznetsov::detail::checkCalc(
+    size_t id, bool block, size_t wait_ms, pending_t& pending, finished_t& finished)
 {
   auto done = finished.find(id);
   if (done != finished.end()) {
@@ -89,8 +99,8 @@ kuznetsov::response_t kuznetsov::detail::checkCalc(size_t id,
   return finishCalc(id, pending, finished);
 }
 
-kuznetsov::response_t kuznetsov::detail::handleRequest(const request_t& req,
-  size_t seed, pending_t& pending, finished_t& finished)
+kuznetsov::response_t kuznetsov::detail::handleRequest(
+    const request_t& req, size_t seed, pending_t& pending, finished_t& finished)
 {
   switch (req.kind) {
   case request_kind_t::calc:

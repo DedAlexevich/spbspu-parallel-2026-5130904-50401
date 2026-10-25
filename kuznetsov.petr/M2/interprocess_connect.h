@@ -1,7 +1,7 @@
 #ifndef INTERPROCESS_CONNECT_H
 #define INTERPROCESS_CONNECT_H
 #include <cstddef>
-#include <stdexcept>
+#include <string>
 #include <system_error>
 
 #include "area_calc.h"
@@ -9,20 +9,9 @@
 namespace kuznetsov {
   constexpr size_t shm_name_size = 64;
 
-  enum class request_kind_t {
-    calc,
-    status,
-    wait,
-    timeout,
-    kill
-  };
+  enum class request_kind_t { calc, status, wait, timeout, kill };
 
-  enum class calc_state_t {
-    progress,
-    done,
-    failed,
-    canceled
-  };
+  enum class calc_state_t { progress, done, failed, canceled };
 
   struct request_t {
     request_kind_t kind;

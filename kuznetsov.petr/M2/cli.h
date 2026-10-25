@@ -6,8 +6,10 @@
 #include <istream>
 #include <map>
 #include <string>
-#include <vector>
 
+#include <sys/types.h>
+
+#include "area_calc.h"
 #include "interprocess_connect.h"
 
 namespace kuznetsov {
@@ -101,7 +103,7 @@ namespace kuznetsov {
     template< class T >
     std::istream& operator>>(std::istream& in, LineArg< T >&& arg)
     {
-      std::istream::sentry s(in, true);
+      const std::istream::sentry s(in, true);
       if (!s) {
         return in;
       }
