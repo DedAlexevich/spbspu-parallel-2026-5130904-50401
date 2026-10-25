@@ -22,19 +22,21 @@ bool kuznetsov::isInside(double x, double y, const ellipse_t& c)
 size_t kuznetsov::calc(const ellipse_t* b, const ellipse_t* e, rect_t rect, size_t tests, size_t seed)
 {
   std::default_random_engine eng(seed);
-  std::uniform_real_distribution< double > dist_x(rect.xmin, rect.xmax);
-  std::uniform_real_distribution< double > dist_y(rect.ymin, rect.ymax);
+  const double range = static_cast< double >(eng.max() - eng.min());
+  const double kx = (rect.xmax - rect.xmin) / range;
+  const double ky = (rect.ymax - rect.ymin) / range;
 
   size_t res{};
   for (size_t i = 0; i < tests; ++i) {
-    const double x = dist_x(eng);
-    const double y = dist_y(eng);
-    res += std::any_of(b, e,
-      [x, y](const ellipse_t& el)
-      {
-        return isInside(x, y, el);
-      });
+    const double x = rect.xmin + static_cast< double >(eng() - eng.min()) * kx;
+    const double y = rect.ymin + static_cast< double >(eng() - eng.min()) * ky;
+    bool inside = false;
+    for (const ellipse_t* it = b; it != e && !inside; ++it) {
+      inside = isInside(x, y, *it);
+    }
+    res += inside;
   }
+  return res;
   return res;
 }
 

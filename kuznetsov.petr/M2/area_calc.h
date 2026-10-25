@@ -1,7 +1,6 @@
 #ifndef AREA_CALC_H
 #define AREA_CALC_H
 #include <cstddef>
-#include <string>
 #include <vector>
 
 namespace kuznetsov {
