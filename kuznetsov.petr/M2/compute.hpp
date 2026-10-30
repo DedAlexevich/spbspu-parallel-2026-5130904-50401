@@ -1,5 +1,5 @@
-#ifndef COMPUTE_H
-#define COMPUTE_H
+#ifndef COMPUTE_HPP
+#define COMPUTE_HPP
 #include <chrono>
 #include <cstddef>
 #include <future>

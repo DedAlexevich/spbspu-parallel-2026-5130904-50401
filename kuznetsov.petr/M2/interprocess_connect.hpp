@@ -1,5 +1,5 @@
-#ifndef INTERPROCESS_CONNECT_H
-#define INTERPROCESS_CONNECT_H
+#ifndef INTERPROCESS_CONNECT_HPP
+#define INTERPROCESS_CONNECT_HPP
 #include <cstddef>
 #include <string>
 #include <system_error>

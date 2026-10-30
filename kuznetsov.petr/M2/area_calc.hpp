@@ -1,5 +1,5 @@
-#ifndef AREA_CALC_H
-#define AREA_CALC_H
+#ifndef AREA_CALC_HPP
+#define AREA_CALC_HPP
 #include <cstddef>
 #include <vector>
 
