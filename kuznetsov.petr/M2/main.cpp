@@ -4,7 +4,7 @@
 
 #include <signal.h>
 
-#include "cli.h"
+#include "cli.hpp"
 
 int main()
 {

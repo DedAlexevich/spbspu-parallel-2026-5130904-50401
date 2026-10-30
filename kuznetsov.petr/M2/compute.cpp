@@ -1,4 +1,4 @@
-#include "compute.h"
+#include "compute.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -10,8 +10,8 @@
 #include <string>
 #include <utility>
 
-#include "area_calc.h"
-#include "interprocess_connect.h"
+#include "area_calc.hpp"
+#include "interprocess_connect.hpp"
 
 kuznetsov::detail::Clicker::Clicker():
   start_(std::chrono::steady_clock::now())

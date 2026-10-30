@@ -9,8 +9,8 @@
 
 #include <sys/types.h>
 
-#include "area_calc.h"
-#include "interprocess_connect.h"
+#include "area_calc.hpp"
+#include "interprocess_connect.hpp"
 
 namespace kuznetsov {
   struct proc_t {

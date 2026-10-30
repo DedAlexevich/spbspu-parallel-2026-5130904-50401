@@ -1,4 +1,4 @@
-#include "interprocess_connect.h"
+#include "interprocess_connect.hpp"
 
 #include <cerrno>
 #include <cstddef>
@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "area_calc.h"
+#include "area_calc.hpp"
 
 kuznetsov::detail::FdGuard::FdGuard(int fd):
   fd_(fd)

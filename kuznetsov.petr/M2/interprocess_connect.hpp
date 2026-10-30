@@ -4,7 +4,7 @@
 #include <string>
 #include <system_error>
 
-#include "area_calc.h"
+#include "area_calc.hpp"
 
 namespace kuznetsov {
   constexpr size_t shm_name_size = 64;

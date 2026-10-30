@@ -1,4 +1,4 @@
-#include "cli.h"
+#include "cli.hpp"
 
 #include <cmath>
 #include <math.h>
@@ -20,9 +20,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "area_calc.h"
-#include "compute.h"
-#include "interprocess_connect.h"
+#include "area_calc.hpp"
+#include "compute.hpp"
+#include "interprocess_connect.hpp"
 
 kuznetsov::detail::IOGuard::IOGuard(std::basic_ios< char >& s):
   s_(s),

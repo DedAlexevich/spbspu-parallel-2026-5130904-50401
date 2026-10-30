@@ -5,7 +5,7 @@
 #include <future>
 #include <map>
 
-#include "interprocess_connect.h"
+#include "interprocess_connect.hpp"
 namespace kuznetsov {
   void computeProcess(int rd, int wr, size_t seed);
 

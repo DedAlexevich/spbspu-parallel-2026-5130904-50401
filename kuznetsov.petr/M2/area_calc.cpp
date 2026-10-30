@@ -1,4 +1,4 @@
-#include "area_calc.h"
+#include "area_calc.hpp"
 
 #include <algorithm>
 #include <cmath>
