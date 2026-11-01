@@ -230,7 +230,7 @@ kuznetsov::proc_t kuznetsov::detail::startProc(std::ostream& out, const state_t&
     }
     close(cmd[0]);
     close(res[1]);
-    std::_Exit(code);
+    std::exit(code);
   }
   close(cmd[0]);
   close(res[1]);
